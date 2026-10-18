@@ -139,7 +139,9 @@ class Window(unittest.TestCase):
         window = self.window
         window.sidebar.set_current(CHECK)
         self.assertIn("error", window.check.badge.text())
-        self.assertTrue(window.sidebar.item(CHECK)._badge.text())
+        badge = window.sidebar._error_badges[CHECK]
+        self.assertTrue(badge.text())
+        self.assertFalse(badge.isHidden())
         window.sidebar.set_current(DETAILS)
         self.assertEqual(window.pages.currentIndex(), 0)
 

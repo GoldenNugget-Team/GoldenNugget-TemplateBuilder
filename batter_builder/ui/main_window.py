@@ -356,10 +356,46 @@ class MainWindow(QMainWindow):
         if self.sidebar is None:
             return
         errors = rules.errors(self.issues)
-        self.sidebar.set_item_badge(CHECK, str(len(errors)) if errors else "")
+        self._set_badge(CHECK, str(len(errors)) if errors else "")
         for index in range(len(self.template.tweaks)):
             count = sum(1 for issue in errors if issue.tweak == index)
-            self.sidebar.set_item_badge(f"tweak:{index}", str(count) if count else "")
+            self._set_badge(f"tweak:{index}", str(count) if count else "")
+
+    def _set_badge(self, item_id, text):
+        """An error count on a sidebar entry: a red pill at the sidebar's
+        right edge. awesomeUI's own badge sits inside the entry, which is only
+        as wide as its text, so this one lives on the sidebar's content."""
+        item = self.sidebar.item(item_id)
+        if item is None:
+            return
+        badges = self.sidebar.__dict__.setdefault("_error_badges", {})
+        badge = badges.get(item_id)
+        if not text:
+            if badge is not None:
+                badge.hide()
+            return
+        if badge is None:
+            badge = QLabel(item.parentWidget())
+            badge.setAlignment(Qt.AlignCenter)
+            badges[item_id] = badge
+        badge.setStyleSheet(f"color: white; background: {theme.ThemeHost.instance().colors.error}; "
+                            "border-radius: 9px; padding: 0px 7px; font-size: 11px; font-weight: 700;")
+        badge.setText(text)
+        badge.setFixedHeight(18)
+        badge.adjustSize()
+        badge.setMinimumWidth(18)
+        badge.show()
+        badge.raise_()
+
+        def place():
+            try:
+                parent = item.parentWidget()
+                badge.move(parent.width() - badge.width() - 8,
+                           item.y() + (item.height() - badge.height()) // 2)
+            except RuntimeError:     # the sidebar was rebuilt meanwhile
+                pass
+        place()
+        QTimer.singleShot(0, place)
 
     def _jump_to_problem(self, item):
         index = item.data(0, Qt.UserRole)
