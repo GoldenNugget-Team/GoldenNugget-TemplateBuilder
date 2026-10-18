@@ -1,11 +1,23 @@
-# Batter Builder
+<p align="center">
+  <img src="assets/icon.png" width="128" height="128" alt="Batter Builder icon">
+</p>
+
+<h1 align="center">Batter Builder</h1>
+
+<p align="center">
+  <a href="https://github.com/GoldenNugget-Team/GoldenNugget-TemplateBuilder/releases/latest">Download</a> ·
+  <a href="https://github.com/GoldenNugget-Team/GoldenNugget-Presets">Community catalog</a> ·
+  <a href="https://github.com/GoldenNugget-Team/GoldenNugget">GoldenNugget</a>
+</p>
 
 A visual editor for [GoldenNugget](https://github.com/GoldenNugget-Team/GoldenNugget)
 `.batter` templates with **community tweaks**: switches, sliders, text boxes and
 choice lists that write plist keys or files on the iPhone, the same places
 GoldenNugget's built-in tweaks write to. No JSON by hand.
 
-![A tweak in Batter Builder](docs/tweak-light.png)
+| Light | Dark |
+|---|---|
+| ![A tweak in the light theme](docs/tweak-light.png) | ![A tweak's writes and control in the dark theme](docs/tweak-dark.png) |
 
 ## What it does
 
@@ -37,7 +49,9 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
   where GitHub turns it into a pull request.
 - Light and dark appearance (View → Appearance), following the system by default.
 
-![The check page](docs/check-light.png)
+| Template details | Check and preview |
+|---|---|
+| ![The template details page](docs/details-light.png) | ![The check page](docs/check-light.png) |
 
 ## Run it
 
