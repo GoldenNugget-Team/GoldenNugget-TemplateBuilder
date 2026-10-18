@@ -47,6 +47,9 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
   opens the upload page of the
   [community catalog](https://github.com/GoldenNugget-Team/GoldenNugget-Presets),
   where GitHub turns it into a pull request.
+- **Guided Tour** (Help → Guided Tour): the app builds an example template by
+  itself, explaining each step. Pause, skip steps, or end it with Esc or End Tour.
+  Your own template comes back when the tour ends, and nothing is saved.
 - Light and dark appearance (View → Appearance), following the system by default.
 
 | Template details | Check and preview |
@@ -74,6 +77,8 @@ Packaged builds are attached to the
 - **Linux**: `BatterBuilder-Linux.zip`.
 
 ## Making a tweak
+
+New to it? Start with **Help → Guided Tour**.
 
 1. Give the template a title and an author on **Details**.
 2. Open the tweak in the sidebar, or click **Add Tweak**. Give it a label and an id.

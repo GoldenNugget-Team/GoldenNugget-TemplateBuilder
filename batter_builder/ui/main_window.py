@@ -174,6 +174,7 @@ class MainWindow(QMainWindow):
         self.path = ""
         self.dirty = False
         self.issues = []
+        self.tour = None
         self._loading = False
         self._timer = QTimer(self, singleShot=True, interval=200, timeout=self.revalidate)
         self._build_menu()
@@ -208,6 +209,7 @@ class MainWindow(QMainWindow):
         catalog.addAction(QAction(icons.icon("upload"), "Submit to Catalog…", self,
                                   triggered=self.submit_to_catalog))
         help_menu = self.menuBar().addMenu("&Help")
+        help_menu.addAction(QAction(icons.icon("toggle"), "Guided Tour", self, triggered=lambda: self.start_tour()))
         help_menu.addAction(QAction(icons.icon("help"), "Template Format Guide", self,
                                     triggered=lambda: QDesktopServices.openUrl(QUrl(FORMAT_DOCS_URL))))
         help_menu.addAction(QAction("About", self, triggered=self.about))
@@ -566,7 +568,19 @@ class MainWindow(QMainWindow):
                           "community tweaks (format 3) and checks them with GoldenNugget's rules.\n\n"
                           "Controls: awesomeUI.")
 
+    def start_tour(self, speed=1.0):
+        """Run the guided tour on an example template; the current template
+        comes back when it ends."""
+        if self.tour is not None and self.tour.active:
+            return self.tour
+        from .tour import Tour
+        self.tour = Tour(self, speed)
+        self.tour.start()
+        return self.tour
+
     def closeEvent(self, event):
+        if self.tour is not None and self.tour.active:
+            self.tour.finish()
         if self._confirm_discard():
             event.accept()
         else:
