@@ -1,0 +1,111 @@
+# Batter Builder
+
+A visual editor for [GoldenNugget](https://github.com/GoldenNugget-Team/GoldenNugget)
+`.batter` templates with **community tweaks**: switches, sliders, text boxes and
+choice lists that write plist keys or files on the iPhone, the same places
+GoldenNugget's built-in tweaks write to. No JSON by hand.
+
+![A tweak in Batter Builder](docs/tweak-light.png)
+
+## What it does
+
+- **Template details**: title, author, description, iOS range and catalog tags.
+- **Tweaks**: label, id, description, iOS range and whether the switch starts on.
+- **Writes** for when the switch is on and when it is off:
+  - plist keys, typed (Boolean, Integer, Real, String, arrays and dictionaries,
+    or the control's value);
+  - a whole file you pick, stored inside the template;
+  - an empty file.
+
+  The path box suggests the Managed Preferences files GoldenNugget itself uses
+  and says right away whether GoldenNugget can write there.
+- **Controls**: a slider, text box or choice list whose value replaces every key
+  of the type *Control value*.
+- **Check**: every rule GoldenNugget applies when it loads a template, plus the
+  risk notes its apply summary shows:
+  - low for keys in Managed Preferences;
+  - medium for a whole file elsewhere;
+  - high for system folders.
+
+  Errors are counted in the sidebar next to the tweak they belong to.
+- **config.json preview** of exactly what will be saved.
+- **Opening existing templates** keeps their wallpaper options, containers,
+  previews and other files, so you can add tweaks to a template you already have.
+- **Submit to Catalog** checks the template, saves it as `<id>.batter` and
+  opens the upload page of the
+  [community catalog](https://github.com/GoldenNugget-Team/GoldenNugget-Presets),
+  where GitHub turns it into a pull request.
+- Light and dark appearance (View → Appearance), following the system by default.
+
+![The check page](docs/check-light.png)
+
+## Run it
+
+You need Python 3.10 or newer.
+
+```bash
+git clone https://github.com/GoldenNugget-Team/GoldenNugget-TemplateBuilder.git
+cd GoldenNugget-TemplateBuilder
+python -m pip install -r requirements.txt
+python main.py
+```
+
+`python main.py my-template.batter` opens a template directly. Packaged builds
+for Windows, macOS and Linux are attached to the
+[releases](https://github.com/GoldenNugget-Team/GoldenNugget-TemplateBuilder/releases).
+
+## Making a tweak
+
+1. Give the template a title and an author on **Details**.
+2. Open the tweak in the sidebar, or click **Add Tweak**. Give it a label and an id.
+   Presets remember the switch by its id, so keep the id stable once it is shared.
+3. Under **Writes → When on**, add what the switch writes. For keys that GoldenNugget
+   should merge with its own, use a file in `/var/Managed Preferences/mobile/`.
+4. To put a key back when the switch is turned off, add a write under **When off**.
+5. Optional: pick a **Control**, then set the type of the key it fills to
+   *Control value*.
+6. When **Check** says *Ready*, save. To share it, use **Submit to Catalog**.
+
+Only submit keys you have tested on a real device, and say in the description
+which iOS versions you tested and every file the template writes outside
+Managed Preferences. The format is described in GoldenNugget's
+[documentation](https://github.com/GoldenNugget-Team/GoldenNugget/blob/main/documentation.md)
+under *Community Tweaks (format 3)*.
+
+## For developers
+
+```
+batter_builder/
+  model.py      template data and config.json conversion
+  rules.py      GoldenNugget's template checks and risk notes
+  batter.py     reading and writing .batter archives
+  locations.py  suggested paths and files GoldenNugget writes itself
+  ui/           the editor (PySide6 + awesomeUI)
+awesomeui/      awesomeUI controls, copied from GoldenNugget
+tests/
+```
+
+`rules.py` mirrors these GoldenNugget files:
+
+- `src/tweaks/posterboard/community_tweaks.py`
+- `src/restore/path_mapping.py`
+
+When GoldenNugget changes them, change `rules.py` too.
+`tests/test_goldennugget.py` loads templates saved here with GoldenNugget's own
+loader and compares the path rules. CI runs it against GoldenNugget's `main`
+every day, so drift shows up as a failing check.
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -t .
+GOLDENNUGGET_DIR=../GoldenNugget QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -t .
+```
+
+The controls come from [awesomeUI](https://github.com/GoldenNugget-Team/awesomeUI).
+`awesomeui/` is a copy of GoldenNugget's `awesomeui` package; `upstream.json`
+records its source and hashes. `batter_builder/ui/theme.py` is the theme host
+the iOS controls need: GoldenNugget's light and dark palettes and the
+stylesheets the controls ask for.
+
+## License
+
+GNU Affero General Public License v3.0, the same as GoldenNugget and awesomeUI.
