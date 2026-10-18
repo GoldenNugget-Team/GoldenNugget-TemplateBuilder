@@ -1,7 +1,7 @@
 """Batter Builder: a visual editor for GoldenNugget .batter templates with
 community tweaks."""
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 APP_NAME = "Batter Builder"
 CATALOG_REPO = "GoldenNugget-Team/GoldenNugget-Presets"
 CATALOG_UPLOAD_URL = f"https://github.com/{CATALOG_REPO}/upload/main/templates"
