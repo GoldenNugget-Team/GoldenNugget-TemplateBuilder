@@ -50,9 +50,14 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-`python main.py my-template.batter` opens a template directly. Packaged builds
-for Windows, macOS and Linux are attached to the
-[releases](https://github.com/GoldenNugget-Team/GoldenNugget-TemplateBuilder/releases).
+`python main.py my-template.batter` opens a template directly.
+
+Packaged builds are attached to the
+[releases](https://github.com/GoldenNugget-Team/GoldenNugget-TemplateBuilder/releases):
+
+- **macOS**: `BatterBuilder-macOS-Universal2.dmg` (or the `.zip`). It is one app for Intel and Apple Silicon and needs macOS 14 Sonoma or later. It is ad-hoc signed and not notarized, so the first time, right-click the app and choose Open.
+- **Windows**: `BatterBuilder-Windows.zip`.
+- **Linux**: `BatterBuilder-Linux.zip`.
 
 ## Making a tweak
 
@@ -94,6 +99,15 @@ When GoldenNugget changes them, change `rules.py` too.
 `tests/test_goldennugget.py` loads templates saved here with GoldenNugget's own
 loader and compares the path rules. CI runs it against GoldenNugget's `main`
 every day, so drift shows up as a failing check.
+
+The macOS release is built by `tools/build_macos.py`, adapted from GoldenNugget's macOS packaging:
+
+- a python.org universal2 Python and PySide6's universal2 wheels (`requirements-macos.txt`);
+- PyInstaller with `--target-arch universal2`;
+- `tools/validate_macos.py`, which checks both slices of every binary and the macOS 14.0 floor;
+- an ad-hoc signature, then a ZIP and a DMG.
+
+CI runs `Batter Builder --smoke` on the app from the DMG, natively on arm64 and on x86_64 under Rosetta.
 
 ```bash
 QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -t .
