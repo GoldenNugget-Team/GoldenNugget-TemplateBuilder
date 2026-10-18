@@ -16,12 +16,14 @@ from awesomeui.controls import IOSCollapsibleSection, IOSPrimaryButton
 
 from .. import APP_NAME, CATALOG_UPLOAD_URL, FORMAT_DOCS_URL, batter, rules
 from ..model import Template, Tweak, Write
-from . import theme
+from . import icons, theme
 from .parts import button, card, header, muted, versions_row
 from .tweak_editor import TweakEditor
 
 FILE_FILTER = "GoldenNugget templates (*.batter)"
 LEVEL_LABELS = {rules.ERROR: "Error", rules.WARNING: "Warning", rules.INFO: "Note"}
+LEVEL_ICONS = {rules.ERROR: ("error", "error"), rules.WARNING: ("warning", "warning"),
+               rules.INFO: ("info", "success")}
 DETAILS, CHECK = "details", "check"
 
 
@@ -121,7 +123,7 @@ class CheckPage(QWidget):
         self.problems = QTreeWidget()
         self.problems.setHeaderLabels(["", "Where", "Problem"])
         self.problems.setRootIsDecorated(False)
-        self.problems.setColumnWidth(0, 80)
+        self.problems.setColumnWidth(0, 100)
         self.problems.setColumnWidth(1, 300)
         self.problems.setMinimumHeight(260)
         self.problems.itemDoubleClicked.connect(window._jump_to_problem)
@@ -147,6 +149,7 @@ class CheckPage(QWidget):
             item = QTreeWidgetItem([LEVEL_LABELS[issue.level], issue.where, issue.text])
             item.setData(0, Qt.UserRole, issue.tweak)
             item.setForeground(0, QColor(level_colors[issue.level]))
+            item.setIcon(0, icons.icon(LEVEL_ICONS[issue.level][0], LEVEL_ICONS[issue.level][1], 16))
             item.setToolTip(2, issue.text)
             self.problems.addTopLevelItem(item)
         errors = len(rules.errors(issues))
@@ -181,12 +184,15 @@ class MainWindow(QMainWindow):
     # ----- layout -----
     def _build_menu(self):
         menu = self.menuBar().addMenu("&File")
-        for text, shortcut, handler in (
-                ("New", QKeySequence.New, self.new_file),
-                ("Open…", QKeySequence.Open, self.open_file),
-                ("Save", QKeySequence.Save, self.save_file),
-                ("Save As…", QKeySequence.SaveAs, self.save_as)):
-            menu.addAction(QAction(text, self, shortcut=shortcut, triggered=handler))
+        for text, shortcut, handler, name in (
+                ("New", QKeySequence.New, self.new_file, "details"),
+                ("Open…", QKeySequence.Open, self.open_file, "open"),
+                ("Save", QKeySequence.Save, self.save_file, "save"),
+                ("Save As…", QKeySequence.SaveAs, self.save_as, None)):
+            action = QAction(text, self, shortcut=shortcut, triggered=handler)
+            if name:
+                action.setIcon(icons.icon(name))
+            menu.addAction(action)
         menu.addSeparator()
         menu.addAction(QAction("Quit", self, shortcut=QKeySequence.Quit, triggered=self.close))
         view = self.menuBar().addMenu("&View")
@@ -199,9 +205,10 @@ class MainWindow(QMainWindow):
             appearance.addAction(action)
         theme.ThemeHost.instance().changed.connect(self._retheme)
         catalog = self.menuBar().addMenu("&Catalog")
-        catalog.addAction(QAction("Submit to Catalog…", self, triggered=self.submit_to_catalog))
+        catalog.addAction(QAction(icons.icon("upload"), "Submit to Catalog…", self,
+                                  triggered=self.submit_to_catalog))
         help_menu = self.menuBar().addMenu("&Help")
-        help_menu.addAction(QAction("Template Format Guide", self,
+        help_menu.addAction(QAction(icons.icon("help"), "Template Format Guide", self,
                                     triggered=lambda: QDesktopServices.openUrl(QUrl(FORMAT_DOCS_URL))))
         help_menu.addAction(QAction("About", self, triggered=self.about))
 
@@ -225,9 +232,10 @@ class MainWindow(QMainWindow):
         bar_layout.setContentsMargins(28, 14, 28, 6)
         self.file_label = muted("")
         bar_layout.addWidget(self.file_label, 1)
-        bar_layout.addWidget(button("Open…", self.open_file))
-        bar_layout.addWidget(button("Save", self.save_file))
+        bar_layout.addWidget(button("Open…", self.open_file, "open"))
+        bar_layout.addWidget(button("Save", self.save_file, "save"))
         self.submit = IOSPrimaryButton("Submit to Catalog")
+        icons.attach(self.submit, "upload", "text_inverse", 18)
         self.submit.setFixedHeight(38)
         self.submit.clicked.connect(self.submit_to_catalog)
         bar_layout.addWidget(self.submit)
@@ -258,12 +266,13 @@ class MainWindow(QMainWindow):
             self.sidebar.deleteLater()
         sidebar = Sidebar(theme=theme.sidebar_theme(), collapsible=False)
         sidebar.add_section("Template")
-        sidebar.add_item(DETAILS, "Details")
-        sidebar.add_item(CHECK, "Check and Preview")
+        sidebar.add_item(DETAILS, "Details", icons.icon("details", "text_secondary"))
+        sidebar.add_item(CHECK, "Check and Preview", icons.icon("check", "text_secondary"))
         sidebar.add_section("Tweaks")
         for index, tweak in enumerate(self.template.tweaks):
-            sidebar.add_item(f"tweak:{index}", tweak.label or tweak.id or "(no label)")
-        add = button("+  Add Tweak", self.add_tweak)
+            sidebar.add_item(f"tweak:{index}", tweak.label or tweak.id or "(no label)",
+                             icons.icon("toggle", "text_secondary"))
+        add = button("Add Tweak", self.add_tweak, "plus")
         sidebar.add_footer_widget(add)
         sidebar.currentChanged.connect(self._open_page)
         self.sidebar = sidebar

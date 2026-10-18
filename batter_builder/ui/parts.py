@@ -4,14 +4,19 @@ from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QPushButton, QVB
 
 from awesomeui.controls import IOSCard, IOSSectionHeader, IOSSegmentedFilter, IOSSwitch
 
+from . import icons
+
 
 class Segments(IOSSegmentedFilter):
     """IOSSegmentedFilter that can be set from code without emitting and can
     rename its segments."""
 
-    def __init__(self, items, parent=None):
+    def __init__(self, items, parent=None, icon_names=None):
         super().__init__(items, parent)
         self._data = [data for _title, data in items]
+        for index, name in enumerate(icon_names or []):
+            if name:
+                icons.attach(self._group.button(index), name, "text_secondary", 16)
 
     def set_data(self, data):
         """Select the segment holding ``data`` without emitting a signal."""
@@ -42,9 +47,11 @@ def header(text):
     return IOSSectionHeader(text)
 
 
-def button(text, handler=None):
-    """A secondary (non-primary) action button."""
+def button(text, handler=None, icon=None):
+    """A secondary (non-primary) action button, optionally with an icon."""
     widget = QPushButton(text)
+    if icon:
+        icons.attach(widget, icon, "text_primary", 16)
     widget.setObjectName("secondary")
     widget.setCursor(Qt.PointingHandCursor)
     if handler is not None:

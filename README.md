@@ -86,6 +86,8 @@ batter_builder/
   batter.py     reading and writing .batter archives
   locations.py  suggested paths and files GoldenNugget writes itself
   ui/           the editor (PySide6 + awesomeUI)
+  ui/icons/     line icons, drawn white and tinted to the theme
+assets/         the app icon (icon.svg, icon-small.svg for 16-32 px)
 awesomeui/      awesomeUI controls, copied from GoldenNugget
 tests/
 ```
@@ -113,6 +115,10 @@ CI runs `Batter Builder --smoke` on the app from the DMG, natively on arm64 and 
 QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -t .
 GOLDENNUGGET_DIR=../GoldenNugget QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -t .
 ```
+
+The app icon is drawn in `assets/icon.svg`, with a simpler `icon-small.svg`
+for 16–32 px. `python tools/make_icons.py` renders them into `icon.png`,
+`icon.ico` and `icon.icns`; commit the results.
 
 The controls come from [awesomeUI](https://github.com/GoldenNugget-Team/awesomeUI).
 `awesomeui/` is a copy of GoldenNugget's `awesomeui` package; `upstream.json`

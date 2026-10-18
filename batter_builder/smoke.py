@@ -36,6 +36,9 @@ def run() -> int:
     from .ui import theme
     theme.install()
     from . import batter, rules
+    from .ui import icons
+    assert not icons.app_icon().isNull(), "the app icon is missing"
+    assert not icons.icon("toggle").isNull(), "the interface icons are missing"
     from .ui.main_window import MainWindow
     window = MainWindow()
     window.show()

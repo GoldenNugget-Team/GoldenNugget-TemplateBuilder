@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFE07A"/><stop offset="1" stop-color="#E8A317"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF9A1F"/><stop offset="1" stop-color="#F25C05"/>
+    </linearGradient>
+  </defs>
+  <!-- simplified for 16-32 px: just the switch on the card -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#rim)"/>
+  <rect x="6" y="6" width="52" height="52" rx="11" fill="url(#face)"/>
+  <rect x="12" y="17" width="40" height="30" rx="8" fill="#FFFFFF"/>
+  <rect x="17" y="24" width="30" height="16" rx="8" fill="#F0A500"/>
+  <circle cx="39" cy="32" r="6" fill="#FFFFFF"/>
+</svg>

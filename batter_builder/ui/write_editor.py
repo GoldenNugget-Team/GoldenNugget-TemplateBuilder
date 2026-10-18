@@ -43,7 +43,7 @@ class WriteForm(QWidget):
         form.setSpacing(10)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-        self.type = Segments(TYPES)
+        self.type = Segments(TYPES, icon_names=("keys", "file", "empty"))
         self.type.currentIndexChanged.connect(self._type_changed)
         form.addRow("Write", self.type)
 
@@ -60,7 +60,7 @@ class WriteForm(QWidget):
         self.path_note.setWordWrap(True)
         form.addRow("", self.path_note)
 
-        self.owner = Segments(OWNERS)
+        self.owner = Segments(OWNERS, icon_names=("mobile", "root"))
         self.owner.currentIndexChanged.connect(self._owner_changed)
         form.addRow("Owner", self.owner)
 
@@ -74,7 +74,7 @@ class WriteForm(QWidget):
         self.source = QLabel()
         self.source.setWordWrap(True)
         file_row.addWidget(self.source, 1)
-        file_row.addWidget(button("Choose File…", self._choose_file), 0, Qt.AlignTop)
+        file_row.addWidget(button("Choose File…", self._choose_file, "open"), 0, Qt.AlignTop)
         self.stack.addWidget(file_page)
         self.stack.addWidget(muted("Writes an empty file. A path ending in .plist gets an empty plist, "
                                    "since a zero-byte plist can send iOS 26.2+ into a boot loop."))
@@ -165,8 +165,9 @@ class WriteList(QWidget):
         self.list.currentRowChanged.connect(self._select)
         left.addWidget(self.list, 1)
         buttons = QHBoxLayout()
-        for text, handler in (("Add", self._add), ("Duplicate", self._duplicate), ("Remove", self._remove)):
-            buttons.addWidget(button(text, handler))
+        for text, handler, name in (("Add", self._add, "plus"), ("Duplicate", self._duplicate, "copy"),
+                                    ("Remove", self._remove, "trash")):
+            buttons.addWidget(button(text, handler, name))
         left.addLayout(buttons)
         layout.addLayout(left, 1)
         self.form = WriteForm()

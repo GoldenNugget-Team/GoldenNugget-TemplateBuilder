@@ -187,6 +187,22 @@ class Window(unittest.TestCase):
         self.assertFalse(ask.called)
         self.assertEqual(self.window.sidebar.current_item_id(), CHECK)
 
+    def test_every_icon_used_exists(self):
+        import re
+        from batter_builder.ui import icons
+        root = Path(__file__).resolve().parents[1] / "batter_builder"
+        source = "\n".join(p.read_text() for p in root.rglob("*.py"))
+        names = set(re.findall(r'icons\.(?:icon|attach)\((?:[\w.]+, )?"([\w-]+)"', source))
+        names |= {n for group in re.findall(r'icon_names=\(([^)]*)\)', source)
+                  for n in re.findall(r'"([\w-]+)"', group)}
+        names |= set(re.findall(r'button\("[^"]*", [^,]+, "([\w-]+)"\)', source))
+        self.assertGreater(len(names), 15)
+        for name in sorted(names):
+            with self.subTest(icon=name):
+                self.assertTrue(Path(icons.path(name)).exists())
+                self.assertFalse(icons.icon(name).isNull())
+        self.assertFalse(icons.app_icon().isNull())
+
     def test_slug(self):
         self.assertEqual(slug("Dock Tweaks!"), "dock-tweaks")
         self.assertEqual(slug("Ж"), "my-template")

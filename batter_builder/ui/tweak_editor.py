@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from awesomeui.controls import IOSDangerButton, IOSSwitch
 
 from ..model import Choice, Control, Template, Tweak
+from . import icons
 from .parts import Segments, button, card, header, muted, switch_row, versions_row
 from .widgets import FitStack
 from .write_editor import WriteList
@@ -63,7 +64,7 @@ class ControlEditor(QWidget):
         layout.setSpacing(10)
         layout.addWidget(muted("A control adds a slider, text box or list under the switch. Its value "
                                "replaces every key of the type Control value in this tweak's writes."))
-        self.kind = Segments(CONTROLS)
+        self.kind = Segments(CONTROLS, icon_names=("none", "slider", "text", "choice"))
         self.kind.currentIndexChanged.connect(self._kind_changed)
         layout.addWidget(self.kind)
         self.stack = FitStack()
@@ -106,8 +107,8 @@ class ControlEditor(QWidget):
         self.c_table.itemChanged.connect(lambda _item: self._store())
         box.addWidget(self.c_table)
         row = QHBoxLayout()
-        row.addWidget(button("Add Choice", self._add_choice))
-        row.addWidget(button("Remove Choice", self._remove_choice))
+        row.addWidget(button("Add Choice", self._add_choice, "plus"))
+        row.addWidget(button("Remove Choice", self._remove_choice, "trash"))
         row.addStretch()
         row.addWidget(QLabel("Default"))
         self.c_default = QComboBox()
@@ -261,9 +262,9 @@ class TweakEditor(QWidget):
         self.title = QLabel()
         self.title.setObjectName("pageTitle")
         top.addWidget(self.title, 1)
-        top.addWidget(button("Move Up", lambda: self.moveRequested.emit(-1)))
-        top.addWidget(button("Move Down", lambda: self.moveRequested.emit(1)))
-        top.addWidget(button("Duplicate", self.duplicateRequested.emit))
+        top.addWidget(button("Move Up", lambda: self.moveRequested.emit(-1), "up"))
+        top.addWidget(button("Move Down", lambda: self.moveRequested.emit(1), "down"))
+        top.addWidget(button("Duplicate", self.duplicateRequested.emit, "copy"))
         layout.addLayout(top)
 
         layout.addWidget(header("Switch"))
@@ -292,7 +293,7 @@ class TweakEditor(QWidget):
 
         layout.addWidget(header("Writes"))
         writes_card, writes_layout = card()
-        self.side = Segments((("When on", "on"), ("When off", "off")))
+        self.side = Segments((("When on", "on"), ("When off", "off")), icon_names=("power", "poweroff"))
         self.side.currentIndexChanged.connect(self._show_side)
         writes_layout.addWidget(self.side)
         self.side_note = muted("")
@@ -312,6 +313,7 @@ class TweakEditor(QWidget):
 
         layout.addSpacing(8)
         remove = IOSDangerButton("Remove Tweak")
+        icons.attach(remove, "trash", "text_inverse", 18)
         remove.setFixedHeight(42)
         remove.clicked.connect(self.removeRequested.emit)
         layout.addWidget(remove, 0, Qt.AlignLeft)

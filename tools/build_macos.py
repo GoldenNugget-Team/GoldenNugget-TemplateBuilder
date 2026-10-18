@@ -25,6 +25,8 @@ NAME = "Batter Builder"
 APP = DIST / f"{NAME}.app"
 BUNDLE_ID = "com.goldennugget-team.batterbuilder"
 FLOOR = "12.0"          # what PySide6 6.9.3's universal2 binaries target (requirements-macos.txt)
+DATA = ("--add-data", "batter_builder/ui/icons:batter_builder/ui/icons",
+        "--add-data", "assets/icon.png:assets", "--add-data", "assets/icon-small.svg:assets")
 ZIP = DIST / "BatterBuilder-macOS-Universal2.zip"
 DMG = DIST / "BatterBuilder-macOS-Universal2.dmg"
 
@@ -44,6 +46,7 @@ def build():
     shutil.rmtree(DIST, ignore_errors=True)
     run(sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowed",
         "--name", NAME, "--target-arch", "universal2", "--osx-bundle-identifier", BUNDLE_ID,
+        "--icon", "assets/icon.icns", *DATA,
         "--collect-submodules", "batter_builder", "--collect-submodules", "awesomeui", "main.py")
     plist = APP / "Contents/Info.plist"
     data = plistlib.loads(plist.read_bytes())
@@ -83,11 +86,21 @@ def package():
             "Universal2: Intel and Apple Silicon.\n"
             f"Drag {APP.name} into Applications.\n"
             "Ad-hoc signed and not notarized: the first time, right-click the app and choose Open.\n")
+        shutil.copy2(ROOT / "assets/icon.icns", staging / ".VolumeIcon.icns")
+        # hdiutil create has no icon option: set the custom icon flag on a
+        # writable volume, then convert it to the compressed final image.
+        writable = Path(directory) / "writable.dmg"
         run("hdiutil", "create", "-ov", "-volname", f"{NAME} {version()}", "-srcfolder", staging,
-            "-fs", "HFS+", "-format", "UDZO", DMG)
-        run("hdiutil", "verify", DMG)
+            "-fs", "HFS+", "-format", "UDRW", writable)
         mounted = Path(directory) / "mounted"
         mounted.mkdir()
+        run("hdiutil", "attach", "-nobrowse", "-mountpoint", mounted, writable)
+        try:
+            run("xcrun", "SetFile", "-a", "C", mounted)
+        finally:
+            run("hdiutil", "detach", mounted)
+        run("hdiutil", "convert", writable, "-ov", "-format", "UDZO", "-o", DMG)
+        run("hdiutil", "verify", DMG)
         run("hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", mounted, DMG)
         try:
             app = mounted / APP.name

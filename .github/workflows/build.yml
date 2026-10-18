@@ -133,7 +133,9 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          python -m PyInstaller --noconfirm --windowed --name "Batter Builder" \
+          python -m PyInstaller --noconfirm --windowed --name "Batter Builder" --icon assets/icon.ico \
+            --add-data "batter_builder/ui/icons:batter_builder/ui/icons" \
+            --add-data "assets/icon.png:assets" --add-data "assets/icon-small.svg:assets" \
             --collect-submodules batter_builder --collect-submodules awesomeui main.py
 
       - name: Smoke test

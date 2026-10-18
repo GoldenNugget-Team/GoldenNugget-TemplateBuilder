@@ -12,6 +12,8 @@ def main():
     app.setStyle("Fusion")
     from . import theme
     theme.install()
+    from . import icons
+    app.setWindowIcon(icons.app_icon())
     from .main_window import MainWindow   # awesomeUI controls need the theme first
     window = MainWindow()
     window.show()
