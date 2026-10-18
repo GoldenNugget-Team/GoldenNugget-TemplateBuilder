@@ -55,7 +55,7 @@ python main.py
 Packaged builds are attached to the
 [releases](https://github.com/GoldenNugget-Team/GoldenNugget-TemplateBuilder/releases):
 
-- **macOS**: `BatterBuilder-macOS-Universal2.dmg` (or the `.zip`). It is one app for Intel and Apple Silicon and needs macOS 14 Sonoma or later. It is ad-hoc signed and not notarized, so the first time, right-click the app and choose Open.
+- **macOS**: `BatterBuilder-macOS-Universal2.dmg` (or the `.zip`). It is one app for Intel and Apple Silicon and needs macOS 12 Monterey or later. It is ad-hoc signed and not notarized, so the first time, right-click the app and choose Open.
 - **Windows**: `BatterBuilder-Windows.zip`.
 - **Linux**: `BatterBuilder-Linux.zip`.
 
@@ -104,7 +104,7 @@ The macOS release is built by `tools/build_macos.py`, adapted from GoldenNugget'
 
 - a python.org universal2 Python and PySide6's universal2 wheels (`requirements-macos.txt`);
 - PyInstaller with `--target-arch universal2`;
-- `tools/validate_macos.py`, which checks both slices of every binary and the macOS 14.0 floor;
+- `tools/validate_macos.py`, which checks both slices of every binary and the macOS 12.0 floor;
 - an ad-hoc signature, then a ZIP and a DMG.
 
 CI runs `Batter Builder --smoke` on the app from the DMG, natively on arm64 and on x86_64 under Rosetta.

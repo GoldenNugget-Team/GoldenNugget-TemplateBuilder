@@ -3,7 +3,7 @@ library it loads is inside the bundle with the same architecture, and nothing
 needs a newer macOS than the floor. Adapted from GoldenNugget's
 tools/validate_macos.py.
 
-    python tools/validate_macos.py "dist/Batter Builder.app" 14.0
+    python tools/validate_macos.py "dist/Batter Builder.app" 12.0
 """
 from functools import lru_cache
 from pathlib import Path
@@ -15,7 +15,7 @@ from macholib.MachO import MachO
 from macholib.mach_o import LC_BUILD_VERSION, LC_LOAD_WEAK_DYLIB, LC_RPATH, LC_VERSION_MIN_MACOSX
 
 app = Path(sys.argv[1]).resolve()
-major, minor = (int(part) for part in (sys.argv[2] if len(sys.argv) > 2 else "14.0").split("."))
+major, minor = (int(part) for part in (sys.argv[2] if len(sys.argv) > 2 else "12.0").split("."))
 floor = major << 16 | minor << 8
 frameworks = app / "Contents/Frameworks"
 executable = app / "Contents/MacOS"

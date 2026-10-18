@@ -24,7 +24,7 @@ DIST = ROOT / "dist"
 NAME = "Batter Builder"
 APP = DIST / f"{NAME}.app"
 BUNDLE_ID = "com.goldennugget-team.batterbuilder"
-FLOOR = "14.0"          # PySide6 6.12's universal2 wheels are built for macOS 14.0
+FLOOR = "12.0"          # what PySide6 6.9.3's universal2 binaries target (requirements-macos.txt)
 ZIP = DIST / "BatterBuilder-macOS-Universal2.zip"
 DMG = DIST / "BatterBuilder-macOS-Universal2.dmg"
 
@@ -79,7 +79,7 @@ def package():
         run("ditto", APP, staging / APP.name)
         (staging / "Applications").symlink_to("/Applications")
         (staging / "README.txt").write_text(
-            f"{NAME} {version()} — macOS {FLOOR} Sonoma or later.\n"
+            f"{NAME} {version()} — macOS {FLOOR} Monterey or later.\n"
             "Universal2: Intel and Apple Silicon.\n"
             f"Drag {APP.name} into Applications.\n"
             "Ad-hoc signed and not notarized: the first time, right-click the app and choose Open.\n")

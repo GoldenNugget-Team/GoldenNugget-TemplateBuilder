@@ -1,6 +1,8 @@
-# Exact versions for the Universal2 macOS build: these PySide6 wheels are
-# universal2 and need macOS 14.0 (tools/build_macos.py FLOOR).
-PySide6-Essentials==6.12.0
-shiboken6==6.12.0
+# Exact versions for the Universal2 macOS build. PySide6 6.9.3's universal2
+# wheels really target macOS 12.0 (tools/build_macos.py FLOOR); the 6.10 and
+# 6.11 binaries need macOS 15 and 6.12's need macOS 26, whatever their wheel
+# tags say.
+PySide6-Essentials==6.9.3
+shiboken6==6.9.3
 pyinstaller==6.22.1
 macholib==1.16.3
