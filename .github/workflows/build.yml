@@ -155,8 +155,34 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             7z a "../${{ matrix.name }}.zip" "Batter Builder"
           else
-            zip -qry "../${{ matrix.name }}.zip" "Batter Builder"
+            # Store the files the PyInstaller symlinks point to, not the links:
+            # many archive tools write a link as a small text file, and the app
+            # then fails with "libQt6….so.6: file too short".
+            zip -qr "../${{ matrix.name }}.zip" "Batter Builder"
           fi
+
+      - name: Test the archive as people unpack it
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+          BATTER_SMOKE_OUT: ${{ github.workspace }}/archive-smoke.log
+        run: |
+          # Python's zipfile ignores symlinks, like many archive managers.
+          python - <<'PY'
+          import os, stat, zipfile
+          with zipfile.ZipFile("${{ matrix.name }}.zip") as archive:
+              links = [i.filename for i in archive.infolist() if stat.S_ISLNK(i.external_attr >> 16)]
+              assert not links, f"symlinks in the archive: {links[:5]}"
+              for info in archive.infolist():
+                  path = archive.extract(info, "unpacked")
+                  mode = info.external_attr >> 16
+                  if mode:
+                      os.chmod(path, stat.S_IMODE(mode))
+          PY
+          "unpacked/Batter Builder/Batter Builder" --smoke || true
+          cat archive-smoke.log
+          grep -q 'BATTER_SMOKE_OK' archive-smoke.log
 
       - uses: actions/upload-artifact@v6
         with:
