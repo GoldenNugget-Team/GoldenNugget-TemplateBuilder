@@ -30,7 +30,8 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
   - an empty file.
 
   The path box suggests the Managed Preferences files GoldenNugget itself uses
-  and says right away whether GoldenNugget can write there.
+  and says right away whether GoldenNugget can write there. **Import from
+  Plist…** takes the keys you tick from an existing `.plist` file.
 - **Controls**: a slider, text box or choice list whose value replaces every key
   of the type *Control value*.
 - **Check**: every rule GoldenNugget applies when it loads a template, plus the
@@ -41,6 +42,9 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
 
   Errors are counted in the sidebar next to the tweak they belong to.
 - **config.json preview** of exactly what will be saved.
+- **iPhone Preview**: the template roughly as GoldenNugget lists it, with
+  working switches and controls, next to what GoldenNugget would write for
+  them (the control's value filled in).
 - **Opening existing templates** keeps their wallpaper options, containers,
   previews and other files, so you can add tweaks to a template you already have.
 - **Submit to Catalog** checks the template, saves it as `<id>.batter` and
@@ -51,12 +55,21 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
   itself, explaining each step. Pause, skip steps, or end it with Esc or End Tour.
   Your own template comes back when the tour ends, and nothing is saved.
 - **Undo and Redo** (Edit menu, Ctrl+Z / Ctrl+Shift+Z) for every change, including removed tweaks.
+- **Reordering**: drag tweaks in the sidebar, or use the Tweak menu
+  (Ctrl+T adds, Ctrl+D duplicates, Alt+↑/↓ moves).
+- **Saving** warns when GoldenNugget would refuse the template, and
+  Details → Files removes files no tweak uses.
+- **Unsaved changes are kept** every minute and offered back if the app did
+  not close normally.
 - **File → Open Recent** and dragging a `.batter` file onto the window open it.
+- **Updates**: the app tells you when a new release is out (Help → Check for Updates).
 - Light and dark appearance (View → Appearance), following the system by default.
 
 | Template details | Check and preview |
 |---|---|
 | ![The template details page](docs/details-light.png) | ![The check page](docs/check-light.png) |
+
+![The iPhone preview with what GoldenNugget writes](docs/preview-light.png)
 
 ## Run it
 
