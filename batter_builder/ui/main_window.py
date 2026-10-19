@@ -3,8 +3,9 @@ entry per tweak; the selected page on the right."""
 import copy
 import os
 import re
+import time
 
-from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, QUrl
+from PySide6.QtCore import QEvent, QObject, QSettings, QStandardPaths, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow, QMessageBox,
@@ -14,7 +15,7 @@ from PySide6.QtWidgets import (
 from awesomeui import EmptyState, Sidebar, StatusBadge, Toast
 from awesomeui.controls import IOSCollapsibleSection, IOSPrimaryButton
 
-from .. import APP_NAME, CATALOG_UPLOAD_URL, FORMAT_DOCS_URL, batter, rules
+from .. import APP_NAME, CATALOG_UPLOAD_URL, FORMAT_DOCS_URL, RELEASES_URL, batter, rules
 from ..model import Template, Tweak, Write
 from . import icons, theme
 from .parts import button, card, header, muted, versions_row
@@ -28,6 +29,8 @@ LEVEL_ICONS = {rules.ERROR: ("error", "error"), rules.WARNING: ("warning", "warn
 DETAILS, CHECK, PREVIEW = "details", "check", "preview"
 MAX_RECENT = 8
 MAX_UNDO = 100
+AUTOSAVE_MS = 60 * 1000
+UPDATE_INTERVAL = 24 * 60 * 60     # seconds between automatic update checks
 
 
 def slug(text: str) -> str:
@@ -245,6 +248,9 @@ class MainWindow(QMainWindow):
         self._loading = False
         self._timer = QTimer(self, singleShot=True, interval=200, timeout=self.revalidate)
         self._drag = TweakDrag(self)
+        self._autosave = QTimer(self, interval=AUTOSAVE_MS, timeout=self.autosave)
+        self._autosave.start()
+        self.updates = None
         # Undo keeps copies of the whole template. Changes that come in quick
         # succession (typing) become one step when the edits pause.
         self._undo, self._redo = [], []
@@ -303,6 +309,13 @@ class MainWindow(QMainWindow):
         help_menu.addAction(QAction(icons.icon("toggle"), "Guided Tour", self, triggered=lambda: self.start_tour()))
         help_menu.addAction(QAction(icons.icon("help"), "Template Format Guide", self,
                                     triggered=lambda: QDesktopServices.openUrl(QUrl(FORMAT_DOCS_URL))))
+        help_menu.addSeparator()
+        help_menu.addAction(QAction("Check for Updates…", self, triggered=lambda: self.check_updates(manual=True)))
+        auto = QAction("Check for Updates Automatically", self, checkable=True,
+                       checked=self.settings.value("updates/auto", True, type=bool))
+        auto.toggled.connect(lambda on: self.settings.setValue("updates/auto", on))
+        help_menu.addAction(auto)
+        help_menu.addSeparator()
         help_menu.addAction(QAction("About", self, triggered=self.about))
 
     def _build_ui(self):
@@ -325,6 +338,10 @@ class MainWindow(QMainWindow):
         bar_layout.setContentsMargins(28, 14, 28, 6)
         self.file_label = muted("")
         bar_layout.addWidget(self.file_label, 1)
+        self.update_button = button("", lambda: QDesktopServices.openUrl(QUrl(self.update_url)), "down")
+        self.update_button.hide()
+        self.update_url = RELEASES_URL
+        bar_layout.addWidget(self.update_button)
         bar_layout.addWidget(button("Open…", self.open_file, "open"))
         bar_layout.addWidget(button("Save", self.save_file, "save"))
         self.submit = IOSPrimaryButton("Submit to Catalog")
@@ -739,6 +756,7 @@ class MainWindow(QMainWindow):
     def new_file(self):
         self._end_tour()
         if self._confirm_discard():
+            self.clear_recovery()
             self.load_template(new_template(), "")
 
     def open_file(self, path: str = ""):
@@ -756,6 +774,7 @@ class MainWindow(QMainWindow):
             return
         self.settings.setValue("folder", os.path.dirname(path))
         self._remember(path)
+        self.clear_recovery()
         self.load_template(template, path)
 
     def _confirm_errors(self) -> bool:
@@ -806,6 +825,7 @@ class MainWindow(QMainWindow):
         self.path = path
         self.dirty = False
         self._saved = self._state(self.template)
+        self.clear_recovery()
         self.settings.setValue("folder", os.path.dirname(path))
         self._remember(path)
         self._update_title()
@@ -867,6 +887,91 @@ class MainWindow(QMainWindow):
                           "community tweaks (format 3) and checks them with GoldenNugget's rules.\n\n"
                           "Controls: awesomeUI.")
 
+    # ----- unsaved work and updates -----
+    @staticmethod
+    def recovery_path() -> str:
+        folder = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+        return os.path.join(folder, "recovery.batter")
+
+    def autosave(self):
+        """Keep a copy of unsaved changes, offered back if the app does not
+        close normally."""
+        if not self.dirty or self._tour_running():
+            return
+        path = self.recovery_path()
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            batter.save(self.template, path)
+        except (OSError, TypeError, ValueError):
+            return
+        self.settings.setValue("recovery/path", self.path)
+
+    def clear_recovery(self):
+        try:
+            os.remove(self.recovery_path())
+        except OSError:
+            pass
+        self.settings.remove("recovery")
+
+    def offer_recovery(self) -> bool:
+        """At start: bring back the changes the last session did not save."""
+        path = self.recovery_path()
+        if not os.path.exists(path):
+            return False
+        original = self.settings.value("recovery/path", "") or ""
+        name = os.path.basename(original) if original else "an unsaved template"
+        answer = QMessageBox.question(
+            self, "Restore Unsaved Changes",
+            f"{APP_NAME} closed last time without saving the changes to {name}. Restore them?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if answer != QMessageBox.Yes:
+            self.clear_recovery()
+            return False
+        try:
+            template = batter.load(path)
+        except batter.BatterError as error:
+            QMessageBox.warning(self, "Restore Unsaved Changes", str(error))
+            self.clear_recovery()
+            return False
+        self.load_template(template, original if original and os.path.exists(original) else "")
+        self._saved = None        # nothing on disk matches it
+        self.dirty = True
+        self._update_title()
+        return True
+
+    def check_updates(self, manual=False):
+        if self.updates is None:
+            from .updates import UpdateChecker
+            self.updates = UpdateChecker(self)
+            self.updates.checked.connect(self._updates_checked)
+        self._manual_update_check = manual
+        self.settings.setValue("updates/last", int(time.time()))
+        self.updates.check()
+
+    def check_updates_on_start(self):
+        last = self.settings.value("updates/last", 0, type=int)
+        if self.settings.value("updates/auto", True, type=bool) and time.time() - last >= UPDATE_INTERVAL:
+            self.check_updates()
+
+    def _updates_checked(self, version, url, error):
+        manual = getattr(self, "_manual_update_check", False)
+        if version:
+            self.update_url = url or RELEASES_URL
+            self.update_button.setText(f"Version {version} is available")
+            self.update_button.show()
+        if not manual:
+            return
+        from .. import __version__
+        if error:
+            QMessageBox.warning(self, "Check for Updates", f"Could not reach GitHub: {error}")
+        elif version:
+            if QMessageBox.question(self, "Check for Updates",
+                                    f"{APP_NAME} {version} is available (this is {__version__}). "
+                                    "Open the download page?") == QMessageBox.Yes:
+                QDesktopServices.openUrl(QUrl(self.update_url))
+        else:
+            QMessageBox.information(self, "Check for Updates", f"{APP_NAME} {__version__} is the latest version.")
+
     def start_tour(self, speed=1.0):
         """Run the guided tour on an example template; the current template
         comes back when it ends."""
@@ -881,6 +986,7 @@ class MainWindow(QMainWindow):
         if self.tour is not None and self.tour.active:
             self.tour.finish()
         if self._confirm_discard():
+            self.clear_recovery()
             event.accept()
         else:
             event.ignore()

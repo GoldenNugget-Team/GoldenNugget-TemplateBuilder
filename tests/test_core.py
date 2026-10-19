@@ -228,6 +228,21 @@ class Preview(unittest.TestCase):
         self.assertEqual(preview.slider_steps(Control("slider", 0, 1, 0, 1)), -1)
 
 
+class Updates(unittest.TestCase):
+    def test_newer_release(self):
+        from batter_builder import updates
+        answer = lambda tag: json.dumps({"tag_name": tag, "html_url": "u"}).encode()
+        self.assertEqual(updates.parse_version("v1.10.2"), (1, 10, 2))
+        self.assertEqual(updates.parse_version("nightly"), ())
+        self.assertEqual(updates.newer_release(answer("v1.2"), "1.1.0"), ("1.2", "u"))
+        self.assertEqual(updates.newer_release(answer("v1.10.0"), "1.9.9"), ("1.10.0", "u"))
+        self.assertIsNone(updates.newer_release(answer("v1.1"), "1.1.0"))
+        self.assertIsNone(updates.newer_release(answer("1.0.9"), "1.1.0"))
+        for bad in (b"<html>", b'{"message": "Not Found"}'):
+            with self.assertRaises(ValueError):
+                updates.newer_release(bad, "1.0")
+
+
 class PlistImport(unittest.TestCase):
     def test_reads_what_config_json_can_hold(self):
         import datetime

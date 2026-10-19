@@ -42,6 +42,8 @@ def run() -> int:
     from .ui.main_window import MainWindow
     window = MainWindow()
     window.show()
+    from .ui.updates import UpdateChecker     # QtNetwork made it into the build
+    UpdateChecker(window)
     window.details.title.setText("Smoke")
     window.details.author.setText("CI")
     values = window.editor.writes.form.values

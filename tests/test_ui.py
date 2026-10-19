@@ -9,11 +9,12 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, QStandardPaths, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QComboBox, QMessageBox, QSlider
 
 APP = QApplication.instance() or QApplication([])
+QStandardPaths.setTestModeEnabled(True)
 QSettings.setDefaultFormat(QSettings.IniFormat)
 QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, tempfile.mkdtemp())
 
@@ -413,6 +414,55 @@ class Window(unittest.TestCase):
         self.assertIn("SBDockAlpha = 0.75", text)
         self.assertIn("S = 1", text)
         self.assertEqual(tweak.writes[0].values["SBDockAlpha"], "$value")    # the template is untouched
+
+    def test_unsaved_changes_are_kept_and_offered_back(self):
+        window = self.window
+        window.clear_recovery()
+        window.autosave()                                   # nothing unsaved: nothing kept
+        self.assertFalse(os.path.exists(window.recovery_path()))
+        path = os.path.join(tempfile.mkdtemp(), "mine.batter")
+        window.details.title.setText("Before")
+        window.details.author.setText("me")
+        window._write(path)
+        window.details.title.setText("Unsaved work")
+        window.autosave()
+        self.assertTrue(os.path.exists(window.recovery_path()))
+
+        later = MainWindow()                                # the next start, after a crash
+        with patch("batter_builder.ui.main_window.QMessageBox.question", return_value=QMessageBox.Yes):
+            self.assertTrue(later.offer_recovery())
+        self.assertEqual((later.template.title, later.path, later.dirty), ("Unsaved work", path, True))
+        later._write(path)                                  # saving drops the copy
+        self.assertFalse(os.path.exists(window.recovery_path()))
+        later.close()
+
+        window.autosave()
+        again = MainWindow()
+        with patch("batter_builder.ui.main_window.QMessageBox.question", return_value=QMessageBox.No):
+            self.assertFalse(again.offer_recovery())
+        self.assertFalse(os.path.exists(window.recovery_path()))
+        again.close()
+
+    def test_update_check(self):
+        import json
+        window = self.window
+        with patch("batter_builder.ui.updates.UpdateChecker.check"):     # no network in tests
+            window.check_updates()
+        checker = window.updates
+        release = lambda tag: json.dumps({"tag_name": tag, "html_url": "https://example.invalid/r"}).encode()
+        checker.handle(release("v0.1.0"), "")
+        self.assertTrue(window.update_button.isHidden())
+        checker.handle(release("v99.0"), "")
+        self.assertFalse(window.update_button.isHidden())
+        self.assertEqual(window.update_button.text(), "Version 99.0 is available")
+        self.assertEqual(window.update_url, "https://example.invalid/r")
+        window._manual_update_check = True
+        with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning:
+            checker.handle(None, "Host not found")
+        self.assertIn("Host not found", warning.call_args[0][2])
+        with patch("batter_builder.ui.main_window.QMessageBox.information") as information:
+            checker.handle(release("v0.1"), "")
+        self.assertIn("latest version", information.call_args[0][2])
 
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \

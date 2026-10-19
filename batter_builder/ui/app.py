@@ -17,6 +17,7 @@ def main():
     from .main_window import MainWindow   # awesomeUI controls need the theme first
     window = MainWindow()
     window.show()
-    if len(sys.argv) > 1:
+    if not window.offer_recovery() and len(sys.argv) > 1:
         window.open_file(sys.argv[1])
+    window.check_updates_on_start()
     sys.exit(app.exec())
