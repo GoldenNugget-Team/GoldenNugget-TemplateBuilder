@@ -4,6 +4,7 @@ import json
 import re
 
 from . import __version__
+from .i18n import _
 
 
 def parse_version(text: str) -> tuple:
@@ -18,9 +19,9 @@ def newer_release(data: bytes, current: str = __version__):
     try:
         release = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"GitHub's answer is not JSON: {error}") from None
+        raise ValueError(_("GitHub's answer is not JSON: {error}").format(error=error)) from None
     if not isinstance(release, dict) or not parse_version(release.get("tag_name", "")):
-        raise ValueError("GitHub's answer has no release version.")
+        raise ValueError(_("GitHub's answer has no release version."))
     latest = parse_version(release["tag_name"])
     pad = lambda v: v + (0,) * (max(len(latest), len(parse_version(current))) - len(v))
     if pad(latest) <= pad(parse_version(current)):

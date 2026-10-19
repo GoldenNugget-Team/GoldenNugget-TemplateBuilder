@@ -10,6 +10,14 @@ def main():
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("GoldenNugget-Team")
     app.setStyle("Fusion")
+    from PySide6.QtCore import QLibraryInfo, QLocale, QSettings, QTranslator
+    from .. import i18n
+    language = i18n.setup(QSettings("GoldenNugget-Team", APP_NAME).value("language", "system"))
+    if language != "en":
+        # Qt's own words: Yes, No, Cancel, file dialogs
+        translator = QTranslator(app)
+        if translator.load(QLocale(language), "qtbase", "_", QLibraryInfo.path(QLibraryInfo.TranslationsPath)):
+            app.installTranslator(translator)
     from . import theme
     theme.install()
     from . import icons

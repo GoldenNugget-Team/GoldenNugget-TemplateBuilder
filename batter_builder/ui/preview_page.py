@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from awesomeui.controls import IOSSwitch
 
 from .. import preview
+from ..i18n import _
 from ..model import Template, Tweak
 from . import theme
 from .parts import card, header, muted
@@ -65,7 +66,7 @@ class TweakRow(QFrame):
         layout.setContentsMargins(14, 10, 14, 12)
         layout.setSpacing(4)
         top = QHBoxLayout()
-        label = QLabel(tweak.label or tweak.id or "(no label)")
+        label = QLabel(tweak.label or tweak.id or _("(no label)"))
         label.setWordWrap(True)
         label.setObjectName("phoneLabel")
         top.addWidget(label, 1)
@@ -130,7 +131,7 @@ class TweakRow(QFrame):
         else:
             combo = QComboBox()
             for choice in control.choices:
-                combo.addItem(choice.label or "(no label)")
+                combo.addItem(choice.label or _("(no label)"))
             if isinstance(control.default, int) and 0 <= control.default < combo.count():
                 combo.setCurrentIndex(control.default)
 
@@ -141,7 +142,7 @@ class TweakRow(QFrame):
             row.addWidget(combo, 1)
         return box
 
-    def _changed(self, *_):
+    def _changed(self, *_args):
         if self.control is not None:
             self.control.setVisible(self.switch.isChecked())
         self.on_change()
@@ -156,12 +157,12 @@ class PreviewPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 22, 28, 28)
         layout.setSpacing(10)
-        title = QLabel("iPhone Preview")
+        title = QLabel(_("iPhone Preview"))
         title.setObjectName("pageTitle")
         layout.addWidget(title)
-        layout.addWidget(muted("Roughly how GoldenNugget lists the template. Try the switches and controls: "
-                               "the right side shows what GoldenNugget would write. Nothing here changes "
-                               "the template."))
+        layout.addWidget(muted(_("Roughly how GoldenNugget lists the template. Try the switches and controls: "
+                                 "the right side shows what GoldenNugget would write. Nothing here changes "
+                                 "the template.")))
         row = QHBoxLayout()
         row.setSpacing(24)
         self.phone = PhoneShell()
@@ -172,7 +173,7 @@ class PreviewPage(QWidget):
         self.phone.layout_.addWidget(self.scroll)
         row.addWidget(self.phone, 0, Qt.AlignTop)
         right = QVBoxLayout()
-        right.addWidget(header("What GoldenNugget writes"))
+        right.addWidget(header(_("What GoldenNugget writes")))
         box, box_layout = card()
         self.writes = QPlainTextEdit()
         self.writes.setReadOnly(True)
@@ -204,12 +205,12 @@ class PreviewPage(QWidget):
         layout = QVBoxLayout(content)
         layout.setContentsMargins(4, 0, 4, 12)
         layout.setSpacing(10)
-        title = QLabel(template.title or "Untitled template")
+        title = QLabel(template.title or _("Untitled template"))
         title.setObjectName("phoneTitle")
         title.setWordWrap(True)
         layout.addWidget(title)
         if template.author:
-            by = QLabel(f"by {template.author}")
+            by = QLabel(_("by {author}").format(author=template.author))
             by.setObjectName("phoneBy")
             layout.addWidget(by)
         if template.description:
@@ -223,7 +224,7 @@ class PreviewPage(QWidget):
             self.rows.append(row)
             layout.addWidget(row)
         if not template.tweaks:
-            empty = QLabel("No tweaks yet.")
+            empty = QLabel(_("No tweaks yet."))
             empty.setObjectName("phoneNote")
             layout.addWidget(empty)
         layout.addStretch()
@@ -244,24 +245,25 @@ def describe(template: Template, rows) -> str:
     lines = []
     for tweak, row in zip(template.tweaks, rows):
         on = row.switch.isChecked()
-        name = tweak.label or tweak.id or "(no label)"
-        state = "on" if on else "off"
+        name = tweak.label or tweak.id or _("(no label)")
+        state = _("on") if on else _("off")
         if on and tweak.control is not None:
-            state += f", value {_format(row.value)}"
+            state += ", " + _("value {value}").format(value=_format(row.value))
         lines.append(f"{'●' if on else '○'} {name} ({state})")
         writes = preview.writes_for(tweak, on, row.value)
         if not writes:
-            lines.append("    nothing is written" if not on else "    no writes")
+            lines.append("    " + (_("nothing is written") if not on else _("no writes")))
         for write in writes:
-            owner = "" if write.owner == 501 else f"  (owner {write.owner})"
-            lines.append(f"    {write.path or '(no path)'}{owner}")
+            owner = "" if write.owner == 501 else "  (" + _("owner {owner}").format(owner=write.owner) + ")"
+            lines.append(f"    {write.path or _('(no path)')}{owner}")
             if write.type == "plist":
                 for key, value in write.values.items():
                     lines.append(f"      {key} = {_format(value)}")
             elif write.type == "file":
                 size = len(template.entries.get(write.source, b""))
-                lines.append(f"      whole file ← {write.source or '(no file)'} ({size:,} bytes)")
+                lines.append("      " + _("whole file ← {name}").format(name=write.source or _("(no file)"))
+                             + " (" + _("{size} bytes").format(size=f"{size:,}") + ")")
             else:
-                lines.append("      empty file")
+                lines.append("      " + _("empty file"))
         lines.append("")
-    return "\n".join(lines).rstrip() + "\n" if lines else "No tweaks yet.\n"
+    return "\n".join(lines).rstrip() + "\n" if lines else _("No tweaks yet.") + "\n"

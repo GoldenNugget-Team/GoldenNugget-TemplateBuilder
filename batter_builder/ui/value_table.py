@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import plist_import
+from ..i18n import _, n_
 from ..model import VALUE_TOKEN
 from .parts import button, muted
 
@@ -66,7 +67,7 @@ class ValueEditor(QWidget):
         elif kind == CONTROL:
             self.widget = QLineEdit(VALUE_TOKEN)
             self.widget.setReadOnly(True)
-            self.widget.setToolTip("Replaced with the value of the tweak's slider, text box or choice.")
+            self.widget.setToolTip(_("Replaced with the value of the tweak's slider, text box or choice."))
         else:
             text = json.dumps(value, ensure_ascii=False) if kind == STRUCTURE else str(value)
             self.widget = QLineEdit(text)
@@ -89,10 +90,10 @@ class ValueEditor(QWidget):
         try:
             parsed = json.loads(text)
         except json.JSONDecodeError as error:
-            self.error = f"Not valid JSON: {error.msg}"
+            self.error = _("Not valid JSON: {error}").format(error=error.msg)
             return []
         if not isinstance(parsed, (list, dict)):
-            self.error = "Use a JSON array [...] or object {...}."
+            self.error = _("Use a JSON array [...] or object {...}.")
             return []
         return parsed
 
@@ -109,7 +110,7 @@ class ValuesTable(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Key", "Type", "Value"])
+        self.table.setHorizontalHeaderLabels([_("Key"), _("Type"), _("Value")])
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(self.KEY, QHeaderView.Stretch)
         header.setSectionResizeMode(self.TYPE, QHeaderView.Fixed)
@@ -121,12 +122,12 @@ class ValuesTable(QWidget):
         self.table.itemChanged.connect(lambda _item: self._store())
         layout.addWidget(self.table)
         buttons = QHBoxLayout()
-        add = button("Add Key", self.add_row, "plus")
-        remove = button("Remove Key", self.remove_row, "trash")
+        add = button(_("Add Key"), self.add_row, "plus")
+        remove = button(_("Remove Key"), self.remove_row, "trash")
         buttons.addWidget(add)
         buttons.addWidget(remove)
         buttons.addStretch()
-        buttons.addWidget(button("Import from Plist…", self.import_plist, "upload"))
+        buttons.addWidget(button(_("Import from Plist…"), self.import_plist, "upload"))
         layout.addLayout(buttons)
 
     def set_values(self, values: dict):
@@ -142,14 +143,14 @@ class ValuesTable(QWidget):
         for row in range(self.table.rowCount()):
             key = self._key(row)
             if not key:
-                problems.append(f"row {row + 1}: the key is empty and is not saved")
+                problems.append(_("row {n}: the key is empty and is not saved").format(n=row + 1))
             elif key in seen:
-                problems.append(f"{key}: the key is used twice; only the last row is saved")
+                problems.append(_("{key}: the key is used twice; only the last row is saved").format(key=key))
             seen.add(key)
             editor = self.table.cellWidget(row, self.VALUE)
             editor.value()
             if editor.error:
-                problems.append(f"{self._key(row) or 'row ' + str(row + 1)}: {editor.error}")
+                problems.append(f"{self._key(row) or _('row {n}').format(n=row + 1)}: {editor.error}")
         return problems
 
     def _append(self, key, kind, value):
@@ -158,9 +159,10 @@ class ValuesTable(QWidget):
         self.table.insertRow(row)
         self.table.setItem(row, self.KEY, QTableWidgetItem(key))
         combo = QComboBox()
-        combo.addItems(TYPES)
-        combo.setCurrentText(kind)
-        combo.currentTextChanged.connect(lambda text, c=combo: self._retype(c, text))
+        for name in TYPES:
+            combo.addItem(_(name), name)
+        combo.setCurrentIndex(max(0, combo.findData(kind)))
+        combo.currentIndexChanged.connect(lambda _index, c=combo: self._retype(c, c.currentData()))
         self.table.setCellWidget(row, self.TYPE, combo)
         self._set_editor(row, kind, value)
 
@@ -200,18 +202,18 @@ class ValuesTable(QWidget):
 
     def import_plist(self, path: str = ""):
         if not path:
-            path, _ = QFileDialog.getOpenFileName(self, "Import Keys from a Plist", "",
-                                                  "Property lists (*.plist);;All files (*)")
+            path, _filter = QFileDialog.getOpenFileName(self, _("Import Keys from a Plist"), "",
+                                                        _("Property lists (*.plist);;All files (*)"))
             if not path:
                 return
         try:
             with open(path, "rb") as handle:
                 values, skipped = plist_import.read(handle.read())
         except (OSError, plist_import.PlistError) as error:
-            QMessageBox.warning(self, "Import from Plist", str(error))
+            QMessageBox.warning(self, _("Import from Plist"), str(error))
             return
         if not values:
-            QMessageBox.warning(self, "Import from Plist", "The plist has no keys that can be written.")
+            QMessageBox.warning(self, _("Import from Plist"), _("The plist has no keys that can be written."))
             return
         dialog = ImportDialog(values, skipped, self)
         if dialog.exec() == QDialog.Accepted:
@@ -228,7 +230,7 @@ class ValuesTable(QWidget):
                 continue
             combo = self.table.cellWidget(rows[key], self.TYPE)
             combo.blockSignals(True)
-            combo.setCurrentText(type_of(value))
+            combo.setCurrentIndex(combo.findData(type_of(value)))
             combo.blockSignals(False)
             self._set_editor(rows[key], type_of(value), value)
         self._loading = False
@@ -260,24 +262,24 @@ class ImportDialog(QDialog):
     def __init__(self, values: dict, skipped: list, parent=None):
         super().__init__(parent)
         self.values = values
-        self.setWindowTitle("Import from Plist")
+        self.setWindowTitle(_("Import from Plist"))
         self.resize(640, 520)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(f"{len(values)} key{'s' if len(values) != 1 else ''} found. "
-                                "Tick the ones this write should set."))
+        layout.addWidget(QLabel(n_(len(values), "{n} key found.", "{n} keys found.") + " "
+                                + _("Tick the ones this write should set.")))
         self.filter = QLineEdit()
-        self.filter.setPlaceholderText("Filter keys")
+        self.filter.setPlaceholderText(_("Filter keys"))
         self.filter.setClearButtonEnabled(True)
         self.filter.textChanged.connect(self._filter)
         layout.addWidget(self.filter)
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Key", "Type", "Value"])
+        self.tree.setHeaderLabels([_("Key"), _("Type"), _("Value")])
         self.tree.setRootIsDecorated(False)
         self.tree.setColumnWidth(0, 260)
         self.tree.setColumnWidth(1, 120)
         for key, value in values.items():
             text = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict, bool)) else str(value)
-            item = QTreeWidgetItem([key, type_of(value).split(" (")[0], text[:200]])
+            item = QTreeWidgetItem([key, _(type_of(value)).split(" (")[0], text[:200]])
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(0, Qt.Unchecked)
             item.setToolTip(2, text[:2000])
@@ -285,12 +287,12 @@ class ImportDialog(QDialog):
         self.tree.itemChanged.connect(self._count)
         layout.addWidget(self.tree, 1)
         row = QHBoxLayout()
-        row.addWidget(button("Select All", lambda: self._check_visible(Qt.Checked)))
-        row.addWidget(button("Select None", lambda: self._check_visible(Qt.Unchecked)))
+        row.addWidget(button(_("Select All"), lambda: self._check_visible(Qt.Checked)))
+        row.addWidget(button(_("Select None"), lambda: self._check_visible(Qt.Unchecked)))
         row.addStretch()
         layout.addLayout(row)
         if skipped:
-            note = muted(f"Left out ({len(skipped)}), since config.json cannot hold them: "
+            note = muted(_("Left out ({n}), since config.json cannot hold them: ").format(n=len(skipped))
                          + "; ".join(skipped[:8]) + ("; …" if len(skipped) > 8 else ""))
             layout.addWidget(note)
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -312,10 +314,10 @@ class ImportDialog(QDialog):
             if not item.isHidden():
                 item.setCheckState(0, state)
 
-    def _count(self, *_):
+    def _count(self, *_args):
         count = len(self.chosen())
         ok = self.buttons.button(QDialogButtonBox.Ok)
-        ok.setText(f"Import {count} Key{'s' if count != 1 else ''}" if count else "Import")
+        ok.setText(n_(count, "Import {n} Key", "Import {n} Keys") if count else _("Import"))
         ok.setEnabled(bool(count))
 
     def chosen(self) -> dict:

@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QPushButton, QVB
 
 from awesomeui.controls import IOSCard, IOSSectionHeader, IOSSegmentedFilter, IOSSwitch
 
+from ..i18n import _
 from . import icons
 
 
@@ -85,9 +86,9 @@ def versions_row(first, second):
     row = QWidget()
     layout = QHBoxLayout(row)
     layout.setContentsMargins(0, 0, 0, 0)
-    first.setPlaceholderText("any")
-    second.setPlaceholderText("any")
+    first.setPlaceholderText(_("any"))
+    second.setPlaceholderText(_("any"))
     layout.addWidget(first)
-    layout.addWidget(QLabel("to"))
+    layout.addWidget(QLabel(_("to")))
     layout.addWidget(second)
     return row

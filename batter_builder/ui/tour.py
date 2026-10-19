@@ -13,6 +13,7 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel, QPushButton, QScrollArea,
                                QVBoxLayout, QWidget)
 
+from ..i18n import _
 from . import value_table
 
 ACCENT = "#FFB020"
@@ -135,12 +136,12 @@ class Controls(QWidget):
         row.setContentsMargins(14, 8, 10, 8)
         self.step = QLabel("")
         row.addWidget(self.step)
-        self.pause = QPushButton("⏸ Pause")
+        self.pause = QPushButton(_("⏸ Pause"))
         self.pause.clicked.connect(tour.toggle_pause)
-        self.next = QPushButton("Next ▶")
+        self.next = QPushButton(_("Next ▶"))
         self.next.setObjectName("tourNext")
         self.next.clicked.connect(tour.skip)
-        self.end = QPushButton("End Tour")
+        self.end = QPushButton(_("End Tour"))
         self.end.clicked.connect(tour.finish)
         for button in (self.pause, self.next, self.end):
             button.setCursor(Qt.PointingHandCursor)
@@ -270,7 +271,7 @@ class Tour(QObject):
 
     def toggle_pause(self):
         self.paused = not self.paused
-        self.controls.pause.setText("▶ Resume" if self.paused else "⏸ Pause")
+        self.controls.pause.setText(_("▶ Resume") if self.paused else _("⏸ Pause"))
         if not self.paused and (self.waiting or not self.timer.isActive()):
             self.advance()
 
@@ -285,8 +286,8 @@ class Tour(QObject):
         if target is not None:
             scroll_to(target)
         self.number += 1
-        self.controls.step.setText(f"Step {self.number}")
-        self.overlay.set_step(title, text, target)
+        self.controls.step.setText(_("Step {n}").format(n=self.number))
+        self.overlay.set_step(_(title), _(text), target)
 
     def say(self, title, text, target, wait):
         self.show(title, text, target)
@@ -320,7 +321,7 @@ class Tour(QObject):
         yield hold
         combo.hidePopup()
         if text is not None:
-            combo.setCurrentText(text)
+            combo.setCurrentIndex(combo.findData(text))
         elif index is not None:
             combo.setCurrentIndex(index)
         yield 400
@@ -447,10 +448,10 @@ class Tour(QObject):
         c.kind._group.button(1).click()
         yield 1200
         for spin, text, title, note in (
-                (c.s_min, "1", "Minimum", "The slider's smallest value."),
-                (c.s_max, "10", "Maximum", "Its largest value."),
-                (c.s_step, "1", "Step", "How far it moves. Whole numbers give whole-number values."),
-                (c.s_default, "5", "Default", "Where the slider starts.")):
+                (c.s_min, "1", _("Minimum"), _("The slider's smallest value.")),
+                (c.s_max, "10", _("Maximum"), _("Its largest value.")),
+                (c.s_step, "1", _("Step"), _("How far it moves. Whole numbers give whole-number values.")),
+                (c.s_default, "5", _("Default"), _("Where the slider starts."))):
             self.show(title, note, spin)
             yield from self.type_into(spin, text, 150)
             yield 1300
@@ -466,7 +467,7 @@ class Tour(QObject):
         chk.preview_section.set_expanded(True)
         yield from self.say("config.json", "Exactly what is saved in the file. No JSON by hand.", chk.preview, 5500)
 
-        save = next(b for b in window.findChildren(QPushButton) if b.text() == "Save")
+        save = next(b for b in window.findChildren(QPushButton) if b.text() == _("Save"))
         yield from self.say("Save", "Save writes the .batter file. (The tour does not save anything.)", save, 4500)
         yield from self.say("Submit to Catalog", "Checks the template, saves it as <id>.batter and opens GitHub: "
                             "drag the file in and click Propose changes. The team reviews it before it appears "

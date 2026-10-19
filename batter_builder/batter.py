@@ -13,6 +13,7 @@ import stat
 import tempfile
 import zipfile
 
+from .i18n import _
 from .model import Template
 
 MAX_ARCHIVE_ENTRIES = 20000
@@ -38,15 +39,15 @@ def load(path: str) -> Template:
         with zipfile.ZipFile(path) as archive:
             infos = [info for info in archive.infolist() if not info.is_dir()]
             if len(infos) > MAX_ARCHIVE_ENTRIES or sum(i.file_size for i in infos) > MAX_ARCHIVE_BYTES:
-                raise BatterError("The template is too large to open.")
+                raise BatterError(_("The template is too large to open."))
             config_name = _find_config(info.filename for info in infos)
             if not config_name:
-                raise BatterError("The file has no config.json.")
+                raise BatterError(_("The file has no config.json."))
             base = config_name[:-len("config.json")]
             try:
                 config = json.loads(archive.read(config_name).decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError) as error:
-                raise BatterError(f"config.json is not valid JSON: {error}") from None
+                raise BatterError(_("config.json is not valid JSON: {error}").format(error=error)) from None
             entries = {}
             for info in infos:
                 name = info.filename
@@ -55,13 +56,13 @@ def load(path: str) -> Template:
                 if not name.startswith(base):
                     # Saving puts config.json at the root; such a file would
                     # be lost, so the template is not opened at all.
-                    raise BatterError(f"{name} is outside the folder that holds config.json.")
+                    raise BatterError(_("{name} is outside the folder that holds config.json.").format(name=name))
                 relative = name[len(base):]
                 if relative.startswith("/") or ".." in relative.split("/"):
-                    raise BatterError(f"Unsafe file name in the template: {name}")
+                    raise BatterError(_("Unsafe file name in the template: {name}").format(name=name))
                 entries[relative] = archive.read(info)
     except (zipfile.BadZipFile, OSError) as error:
-        raise BatterError(f"This is not a .batter file: {error}") from None
+        raise BatterError(_("This is not a .batter file: {error}").format(error=error)) from None
     return Template.from_config(config, entries)
 
 

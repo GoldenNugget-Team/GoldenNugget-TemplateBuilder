@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QStackedWidget, QVBoxLayout, QWidget,
 )
 
+from ..i18n import _
 from ..locations import LOCATIONS
 from ..model import Template, Write
 from ..rules import MAX_SOURCE_BYTES, path_problem
@@ -16,17 +17,17 @@ from .parts import Segments, button, muted
 from .value_table import ValuesTable
 from .widgets import FitStack
 
-TYPES = (("Plist keys", "plist"), ("Whole file", "file"), ("Empty file", "empty"))
-OWNERS = (("mobile (501)", 501), ("root (0)", 0))
+TYPES = ((_("Plist keys"), "plist"), (_("Whole file"), "file"), (_("Empty file"), "empty"))
+OWNERS = ((_("mobile (501)"), 501), (_("root (0)"), 0))
 
 
 def describe(write: Write) -> str:
-    name = write.path.rsplit("/", 1)[-1] or "(no path)"
+    name = write.path.rsplit("/", 1)[-1] or _("(no path)")
     if write.type == "plist":
-        return f"{name}: {', '.join(write.values) or 'no keys'}"
+        return f"{name}: {', '.join(write.values) or _('no keys')}"
     if write.type == "file":
-        return f"{name} ← {write.source or 'no file'}"
-    return f"{name} (empty)"
+        return f"{name} ← {write.source or _('no file')}"
+    return f"{name} {_('(empty)')}"
 
 
 class WriteForm(QWidget):
@@ -45,24 +46,24 @@ class WriteForm(QWidget):
 
         self.type = Segments(TYPES, icon_names=("keys", "file", "empty"))
         self.type.currentIndexChanged.connect(self._type_changed)
-        form.addRow("Write", self.type)
+        form.addRow(_("Write"), self.type)
 
         self.path = QComboBox()
         self.path.setEditable(True)
         self.path.setInsertPolicy(QComboBox.NoInsert)
         for path, label in LOCATIONS:
             self.path.addItem(path)
-            self.path.setItemData(self.path.count() - 1, label, Qt.ToolTipRole)
+            self.path.setItemData(self.path.count() - 1, _(label), Qt.ToolTipRole)
         self.path.lineEdit().setPlaceholderText("/var/Managed Preferences/mobile/com.apple.springboard.plist")
         self.path.editTextChanged.connect(self._path_changed)
-        form.addRow("Path on iPhone", self.path)
+        form.addRow(_("Path on iPhone"), self.path)
         self.path_note = QLabel()
         self.path_note.setWordWrap(True)
         form.addRow("", self.path_note)
 
         self.owner = Segments(OWNERS, icon_names=("mobile", "root"))
         self.owner.currentIndexChanged.connect(self._owner_changed)
-        form.addRow("Owner", self.owner)
+        form.addRow(_("Owner"), self.owner)
 
         self.stack = FitStack()
         self.values = ValuesTable()
@@ -74,10 +75,10 @@ class WriteForm(QWidget):
         self.source = QLabel()
         self.source.setWordWrap(True)
         file_row.addWidget(self.source, 1)
-        file_row.addWidget(button("Choose File…", self._choose_file, "open"), 0, Qt.AlignTop)
+        file_row.addWidget(button(_("Choose File…"), self._choose_file, "open"), 0, Qt.AlignTop)
         self.stack.addWidget(file_page)
-        self.stack.addWidget(muted("Writes an empty file. A path ending in .plist gets an empty plist, "
-                                   "since a zero-byte plist can send iOS 26.2+ into a boot loop."))
+        self.stack.addWidget(muted(_("Writes an empty file. A path ending in .plist gets an empty plist, "
+                                     "since a zero-byte plist can send iOS 26.2+ into a boot loop.")))
         form.addRow(self.stack)
 
     def edit(self, template: Template, write: Write):
@@ -102,10 +103,10 @@ class WriteForm(QWidget):
     def _source_text(self):
         source = self.write.source
         if not source:
-            return "No file chosen."
+            return _("No file chosen.")
         if source not in self.template.entries:
-            return f"{source} (missing)"
-        return f"{source} ({len(self.template.entries[source]):,} bytes)"
+            return f"{source} {_('(missing)')}"
+        return f"{source} (" + _("{size} bytes").format(size=f"{len(self.template.entries[source]):,}") + ")"
 
     def _type_changed(self):
         if self.write is None or self._loading:
@@ -122,8 +123,8 @@ class WriteForm(QWidget):
         self._emit()
 
     def _update_path_note(self):
-        problem = path_problem(self.write.path) if self.write.path else "Enter where the iPhone stores the file."
-        self.path_note.setText(problem or "GoldenNugget can write here.")
+        problem = path_problem(self.write.path) if self.write.path else _("Enter where the iPhone stores the file.")
+        self.path_note.setText(problem or _("GoldenNugget can write here."))
         self.path_note.setObjectName("bad" if problem else "good")
         self.path_note.style().unpolish(self.path_note)
         self.path_note.style().polish(self.path_note)
@@ -135,11 +136,11 @@ class WriteForm(QWidget):
         self._emit()
 
     def _choose_file(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose the file to install")
+        path, _filter = QFileDialog.getOpenFileName(self, _("Choose the file to install"))
         if not path:
             return
         if os.path.getsize(path) > MAX_SOURCE_BYTES:
-            QMessageBox.warning(self, "File too large", "GoldenNugget accepts files of at most 4 MB.")
+            QMessageBox.warning(self, _("File too large"), _("GoldenNugget accepts files of at most 4 MB."))
             return
         with open(path, "rb") as handle:
             data = handle.read()
@@ -165,14 +166,14 @@ class WriteList(QWidget):
         self.list.currentRowChanged.connect(self._select)
         left.addWidget(self.list, 1)
         buttons = QHBoxLayout()
-        for text, handler, name in (("Add", self._add, "plus"), ("Duplicate", self._duplicate, "copy"),
-                                    ("Remove", self._remove, "trash")):
+        for text, handler, name in ((_("Add"), self._add, "plus"), (_("Duplicate"), self._duplicate, "copy"),
+                                    (_("Remove"), self._remove, "trash")):
             buttons.addWidget(button(text, handler, name))
         left.addLayout(buttons)
         layout.addLayout(left, 1)
         self.form = WriteForm()
         self.form.changed.connect(self._form_changed)
-        self.placeholder = muted("Add a write to say what this tweak changes on the iPhone.")
+        self.placeholder = muted(_("Add a write to say what this tweak changes on the iPhone."))
         self.placeholder.setAlignment(Qt.AlignCenter)
         self.right = QStackedWidget()
         self.right.addWidget(self.placeholder)

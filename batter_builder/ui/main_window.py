@@ -15,15 +15,16 @@ from PySide6.QtWidgets import (
 from awesomeui import EmptyState, Sidebar, StatusBadge, Toast
 from awesomeui.controls import IOSCollapsibleSection, IOSPrimaryButton
 
-from .. import APP_NAME, CATALOG_UPLOAD_URL, FORMAT_DOCS_URL, RELEASES_URL, batter, rules
+from .. import APP_NAME, CATALOG_UPLOAD_URL, FORMAT_DOCS_URL, RELEASES_URL, batter, i18n, rules
+from ..i18n import _, n_
 from ..model import Template, Tweak, Write
 from . import icons, theme
 from .parts import button, card, header, muted, versions_row
 from .preview_page import PreviewPage
 from .tweak_editor import TweakEditor
 
-FILE_FILTER = "GoldenNugget templates (*.batter)"
-LEVEL_LABELS = {rules.ERROR: "Error", rules.WARNING: "Warning", rules.INFO: "Note"}
+FILE_FILTER = _("GoldenNugget templates (*.batter)")
+LEVEL_LABELS = {rules.ERROR: _("Error"), rules.WARNING: _("Warning"), rules.INFO: _("Note")}
 LEVEL_ICONS = {rules.ERROR: ("error", "error"), rules.WARNING: ("warning", "warning"),
                rules.INFO: ("info", "success")}
 DETAILS, CHECK, PREVIEW = "details", "check", "preview"
@@ -62,39 +63,39 @@ class DetailsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 22, 28, 28)
         layout.setSpacing(10)
-        title = QLabel("Template")
+        title = QLabel(_("Template"))
         title.setObjectName("pageTitle")
         layout.addWidget(title)
-        layout.addWidget(muted("The catalog shows the title, author, description, iOS range and tags. "
-                               "Each tweak becomes a switch in GoldenNugget's PosterBoard → Templates."))
-        layout.addWidget(header("Details"))
+        layout.addWidget(muted(_("The catalog shows the title, author, description, iOS range and tags. "
+                                 "Each tweak becomes a switch in GoldenNugget's PosterBoard → Templates.")))
+        layout.addWidget(header(_("Details")))
         box, form = card(form=True)
         self.title = QLineEdit()
         self.title.setPlaceholderText("Dock Tweaks")
         self.author = QLineEdit()
-        self.author.setPlaceholderText("your name")
+        self.author.setPlaceholderText(_("your name"))
         self.description = QPlainTextEdit()
-        self.description.setPlaceholderText("What the template changes. Name every file it writes outside "
-                                            "Managed Preferences.")
+        self.description.setPlaceholderText(_("What the template changes. Name every file it writes outside "
+                                              "Managed Preferences."))
         self.description.setFixedHeight(90)
         self.min_version, self.max_version = QLineEdit(), QLineEdit()
         self.tags = QLineEdit()
         self.tags.setPlaceholderText("dock, minimal")
-        form.addRow("Title", self.title)
-        form.addRow("Author", self.author)
-        form.addRow("Description", self.description)
-        form.addRow("iOS", versions_row(self.min_version, self.max_version))
-        form.addRow("Tags", self.tags)
+        form.addRow(_("Title"), self.title)
+        form.addRow(_("Author"), self.author)
+        form.addRow(_("Description"), self.description)
+        form.addRow(_("iOS"), versions_row(self.min_version, self.max_version))
+        form.addRow(_("Tags"), self.tags)
         layout.addWidget(box)
         for widget in (self.title, self.author, self.min_version, self.max_version, self.tags):
             widget.textChanged.connect(window._store_template)
         self.description.textChanged.connect(window._store_template)
 
-        layout.addWidget(header("Files"))
+        layout.addWidget(header(_("Files")))
         files, files_layout = card()
         self.files = muted("")
         files_layout.addWidget(self.files)
-        self.remove_unused = button("Remove Unused Files", window.remove_unused_files, "trash")
+        self.remove_unused = button(_("Remove Unused Files"), window.remove_unused_files, "trash")
         files_layout.addWidget(self.remove_unused, 0, Qt.AlignLeft)
         layout.addWidget(files)
         layout.addStretch()
@@ -102,10 +103,11 @@ class DetailsPage(QWidget):
     def show_files(self, template: Template):
         self.remove_unused.setVisible(bool(template.unused_sources()))
         if not template.entries:
-            self.files.setText("No files yet. A tweak's Whole file write adds one.")
+            self.files.setText(_("No files yet. A tweak's Whole file write adds one."))
             return
         used = template.referenced_sources()
-        lines = [f"{name}  ({len(data):,} bytes){'' if name in used or not name.startswith('files/') else '  — unused'}"
+        lines = [f"{name}  (" + _("{size} bytes").format(size=f"{len(data):,}") + ")"
+                 + ("" if name in used or not name.startswith("files/") else "  — " + _("unused"))
                  for name, data in sorted(template.entries.items())]
         self.files.setText("\n".join(lines[:40]) + ("\n…" if len(lines) > 40 else ""))
 
@@ -118,19 +120,19 @@ class CheckPage(QWidget):
         layout.setContentsMargins(28, 22, 28, 28)
         layout.setSpacing(10)
         top = QHBoxLayout()
-        title = QLabel("Check")
+        title = QLabel(_("Check"))
         title.setObjectName("pageTitle")
         top.addWidget(title)
-        self.badge = StatusBadge("Ready", "success")
+        self.badge = StatusBadge(_("Ready"), "success")
         top.addWidget(self.badge, 0, Qt.AlignVCenter)
         top.addStretch()
         layout.addLayout(top)
-        layout.addWidget(muted("The same checks GoldenNugget runs when it loads the template, plus the "
-                               "risk notes its apply summary shows. Double-click a line to open the tweak."))
-        layout.addWidget(header("Problems and notes"))
+        layout.addWidget(muted(_("The same checks GoldenNugget runs when it loads the template, plus the "
+                                 "risk notes its apply summary shows. Double-click a line to open the tweak.")))
+        layout.addWidget(header(_("Problems and notes")))
         box, box_layout = card()
         self.problems = QTreeWidget()
-        self.problems.setHeaderLabels(["", "Where", "Problem"])
+        self.problems.setHeaderLabels(["", _("Where"), _("Problem")])
         self.problems.setRootIsDecorated(False)
         self.problems.setColumnWidth(0, 100)
         self.problems.setColumnWidth(1, 300)
@@ -164,13 +166,13 @@ class CheckPage(QWidget):
         errors = len(rules.errors(issues))
         warnings = sum(1 for issue in issues if issue.level == rules.WARNING)
         if errors:
-            self.badge.setText(f"{errors} error{'s' if errors != 1 else ''}")
+            self.badge.setText(n_(errors, "{n} error", "{n} errors"))
             self.badge.set_kind("error")
         elif warnings:
-            self.badge.setText(f"Ready, {warnings} warning{'s' if warnings != 1 else ''}")
+            self.badge.setText(_("Ready") + ", " + n_(warnings, "{n} warning", "{n} warnings"))
             self.badge.set_kind("warning")
         else:
-            self.badge.setText("Ready")
+            self.badge.setText(_("Ready"))
             self.badge.set_kind("success")
         self.preview.setPlainText(config_text)
 
@@ -264,59 +266,67 @@ class MainWindow(QMainWindow):
 
     # ----- layout -----
     def _build_menu(self):
-        menu = self.menuBar().addMenu("&File")
+        menu = self.menuBar().addMenu(_("&File"))
         for text, shortcut, handler, name in (
-                ("New", QKeySequence.New, self.new_file, "details"),
-                ("Open…", QKeySequence.Open, self.open_file, "open"),
-                ("Save", QKeySequence.Save, self.save_file, "save"),
-                ("Save As…", QKeySequence.SaveAs, self.save_as, None)):
+                (_("New"), QKeySequence.New, self.new_file, "details"),
+                (_("Open…"), QKeySequence.Open, self.open_file, "open"),
+                (_("Save"), QKeySequence.Save, self.save_file, "save"),
+                (_("Save As…"), QKeySequence.SaveAs, self.save_as, None)):
             action = QAction(text, self, shortcut=shortcut, triggered=handler)
             if name:
                 action.setIcon(icons.icon(name))
             menu.addAction(action)
-            if text == "Open…":
-                self.recent_menu = menu.addMenu("Open Recent")
+            if name == "open":
+                self.recent_menu = menu.addMenu(_("Open Recent"))
                 self.recent_menu.aboutToShow.connect(self._fill_recent)
         menu.addSeparator()
-        menu.addAction(QAction("Quit", self, shortcut=QKeySequence.Quit, triggered=self.close))
-        edit = self.menuBar().addMenu("&Edit")
-        self.undo_action = QAction("Undo", self, shortcut=QKeySequence.Undo, triggered=self.undo, enabled=False)
-        self.redo_action = QAction("Redo", self, shortcut=QKeySequence.Redo, triggered=self.redo, enabled=False)
+        menu.addAction(QAction(_("Quit"), self, shortcut=QKeySequence.Quit, triggered=self.close))
+        edit = self.menuBar().addMenu(_("&Edit"))
+        self.undo_action = QAction(_("Undo"), self, shortcut=QKeySequence.Undo, triggered=self.undo, enabled=False)
+        self.redo_action = QAction(_("Redo"), self, shortcut=QKeySequence.Redo, triggered=self.redo, enabled=False)
         edit.addAction(self.undo_action)
         edit.addAction(self.redo_action)
-        tweak_menu = self.menuBar().addMenu("&Tweak")
+        tweak_menu = self.menuBar().addMenu(_("&Tweak"))
         for text, shortcut, handler, name in (
-                ("Add Tweak", "Ctrl+T", self.add_tweak, "plus"),
-                ("Duplicate Tweak", "Ctrl+D", self.duplicate_tweak, "copy"),
-                ("Move Up", "Alt+Up", lambda: self.move_tweak(-1), "up"),
-                ("Move Down", "Alt+Down", lambda: self.move_tweak(1), "down"),
-                ("Remove Tweak…", "Ctrl+Shift+Backspace", self.remove_tweak, "trash")):
+                (_("Add Tweak"), "Ctrl+T", self.add_tweak, "plus"),
+                (_("Duplicate Tweak"), "Ctrl+D", self.duplicate_tweak, "copy"),
+                (_("Move Up"), "Alt+Up", lambda: self.move_tweak(-1), "up"),
+                (_("Move Down"), "Alt+Down", lambda: self.move_tweak(1), "down"),
+                (_("Remove Tweak…"), "Ctrl+Shift+Backspace", self.remove_tweak, "trash")):
             tweak_menu.addAction(QAction(icons.icon(name), text, self, shortcut=QKeySequence(shortcut),
                                          triggered=handler))
-        view = self.menuBar().addMenu("&View")
-        appearance = view.addMenu("Appearance")
+        view = self.menuBar().addMenu(_("&View"))
+        appearance = view.addMenu(_("Appearance"))
         group = QActionGroup(self)
-        for mode, text in (("system", "Same as System"), ("light", "Light"), ("dark", "Dark")):
+        for mode, text in (("system", _("Same as System")), ("light", _("Light")), ("dark", _("Dark"))):
             action = QAction(text, self, checkable=True, checked=theme.ThemeHost.instance().mode == mode)
             action.triggered.connect(lambda _checked, m=mode: theme.ThemeHost.instance().set_mode(m))
             group.addAction(action)
             appearance.addAction(action)
         theme.ThemeHost.instance().changed.connect(self._retheme)
-        catalog = self.menuBar().addMenu("&Catalog")
-        catalog.addAction(QAction(icons.icon("upload"), "Submit to Catalog…", self,
+        language = view.addMenu(_("Language"))
+        group = QActionGroup(self)
+        chosen = self.settings.value("language", "system")
+        for code, text in i18n.LANGUAGES:
+            action = QAction(_(text), self, checkable=True, checked=chosen == code)
+            action.triggered.connect(lambda _checked, c=code: self.set_language(c))
+            group.addAction(action)
+            language.addAction(action)
+        catalog = self.menuBar().addMenu(_("&Catalog"))
+        catalog.addAction(QAction(icons.icon("upload"), _("Submit to Catalog…"), self,
                                   triggered=self.submit_to_catalog))
-        help_menu = self.menuBar().addMenu("&Help")
-        help_menu.addAction(QAction(icons.icon("toggle"), "Guided Tour", self, triggered=lambda: self.start_tour()))
-        help_menu.addAction(QAction(icons.icon("help"), "Template Format Guide", self,
+        help_menu = self.menuBar().addMenu(_("&Help"))
+        help_menu.addAction(QAction(icons.icon("toggle"), _("Guided Tour"), self, triggered=lambda: self.start_tour()))
+        help_menu.addAction(QAction(icons.icon("help"), _("Template Format Guide"), self,
                                     triggered=lambda: QDesktopServices.openUrl(QUrl(FORMAT_DOCS_URL))))
         help_menu.addSeparator()
-        help_menu.addAction(QAction("Check for Updates…", self, triggered=lambda: self.check_updates(manual=True)))
-        auto = QAction("Check for Updates Automatically", self, checkable=True,
+        help_menu.addAction(QAction(_("Check for Updates…"), self, triggered=lambda: self.check_updates(manual=True)))
+        auto = QAction(_("Check for Updates Automatically"), self, checkable=True,
                        checked=self.settings.value("updates/auto", True, type=bool))
         auto.toggled.connect(lambda on: self.settings.setValue("updates/auto", on))
         help_menu.addAction(auto)
         help_menu.addSeparator()
-        help_menu.addAction(QAction("About", self, triggered=self.about))
+        help_menu.addAction(QAction(_("About"), self, triggered=self.about))
 
     def _build_ui(self):
         central = QWidget()
@@ -342,9 +352,9 @@ class MainWindow(QMainWindow):
         self.update_button.hide()
         self.update_url = RELEASES_URL
         bar_layout.addWidget(self.update_button)
-        bar_layout.addWidget(button("Open…", self.open_file, "open"))
-        bar_layout.addWidget(button("Save", self.save_file, "save"))
-        self.submit = IOSPrimaryButton("Submit to Catalog")
+        bar_layout.addWidget(button(_("Open…"), self.open_file, "open"))
+        bar_layout.addWidget(button(_("Save"), self.save_file, "save"))
+        self.submit = IOSPrimaryButton(_("Submit to Catalog"))
         icons.attach(self.submit, "upload", "text_inverse", 18)
         self.submit.setFixedHeight(38)
         self.submit.clicked.connect(self.submit_to_catalog)
@@ -359,8 +369,8 @@ class MainWindow(QMainWindow):
         self.editor.removeRequested.connect(self.remove_tweak)
         self.editor.duplicateRequested.connect(self.duplicate_tweak)
         self.editor.moveRequested.connect(self.move_tweak)
-        self.empty = EmptyState("No tweaks yet", "A tweak is a switch in GoldenNugget that writes plist keys "
-                                "or files on the iPhone.", "Add Tweak")
+        self.empty = EmptyState(_("No tweaks yet"), _("A tweak is a switch in GoldenNugget that writes plist keys "
+                                                      "or files on the iPhone."), _("Add Tweak"))
         self.empty.actionRequested.connect(self.add_tweak)
         self.pages = QStackedWidget()
         for page in (self.details, self.check, self.editor):
@@ -377,15 +387,15 @@ class MainWindow(QMainWindow):
             self.sidebar_slot.removeWidget(self.sidebar)
             self.sidebar.deleteLater()
         sidebar = Sidebar(theme=theme.sidebar_theme(), collapsible=False)
-        sidebar.add_section("Template")
-        sidebar.add_item(DETAILS, "Details", icons.icon("details", "text_secondary"))
-        sidebar.add_item(CHECK, "Check and Preview", icons.icon("check", "text_secondary"))
-        sidebar.add_item(PREVIEW, "iPhone Preview", icons.icon("mobile", "text_secondary"))
-        sidebar.add_section("Tweaks")
+        sidebar.add_section(_("Template"))
+        sidebar.add_item(DETAILS, _("Details"), icons.icon("details", "text_secondary"))
+        sidebar.add_item(CHECK, _("Check and Preview"), icons.icon("check", "text_secondary"))
+        sidebar.add_item(PREVIEW, _("iPhone Preview"), icons.icon("mobile", "text_secondary"))
+        sidebar.add_section(_("Tweaks"))
         for index, tweak in enumerate(self.template.tweaks):
-            sidebar.add_item(f"tweak:{index}", tweak.label or tweak.id or "(no label)",
+            sidebar.add_item(f"tweak:{index}", tweak.label or tweak.id or _("(no label)"),
                              icons.icon("toggle", "text_secondary"))
-        add = button("Add Tweak", self.add_tweak, "plus")
+        add = button(_("Add Tweak"), self.add_tweak, "plus")
         sidebar.add_footer_widget(add)
         sidebar.currentChanged.connect(self._open_page)
         self._drag.watch(sidebar, len(self.template.tweaks))
@@ -442,7 +452,7 @@ class MainWindow(QMainWindow):
         details.tags.setText(", ".join(template.tags))
         self._loading = False
 
-    def _store_template(self, *_):
+    def _store_template(self, *_args):
         if self._loading:
             return
         details, template = self.details, self.template
@@ -462,16 +472,16 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     def _update_title(self):
-        name = os.path.basename(self.path) if self.path else "Untitled"
+        name = os.path.basename(self.path) if self.path else _("Untitled")
         self.setWindowTitle(f"{name}{' •' if self.dirty else ''} — {APP_NAME}")
-        self.file_label.setText(self.path or "Not saved yet")
+        self.file_label.setText(self.path or _("Not saved yet"))
 
     def revalidate(self):
         self.issues = rules.validate(self.template)
         index = self.current_tweak()
         if index >= 0:
             for problem in self.editor.editor_errors():
-                self.issues.insert(0, rules.Issue(rules.ERROR, f"Tweak {index + 1}", problem, index))
+                self.issues.insert(0, rules.Issue(rules.ERROR, _("Tweak {n}").format(n=index + 1), problem, index))
         self.check.show_issues(self.issues, batter.dumps_config(self.template))
         self._update_badges()
         self._update_title()
@@ -605,7 +615,7 @@ class MainWindow(QMainWindow):
         for index, tweak in enumerate(self.template.tweaks):
             item = self.sidebar.item(f"tweak:{index}")
             if item is not None:
-                item.set_label(tweak.label or tweak.id or "(no label)")
+                item.set_label(tweak.label or tweak.id or _("(no label)"))
 
     def _after_list_change(self, select):
         self._commit()
@@ -634,7 +644,7 @@ class MainWindow(QMainWindow):
         while f"{base}-{number}" in used:
             number += 1
         clone.id = f"{base}-{number}"[:64]
-        clone.label = f"{clone.label} (copy)"[:80]
+        clone.label = (clone.label + " " + _("(copy)"))[:80]
         self.template.tweaks.insert(row + 1, clone)
         self._after_list_change(row + 1)
 
@@ -643,8 +653,8 @@ class MainWindow(QMainWindow):
         row = self.current_tweak()
         if row < 0:
             return
-        label = self.template.tweaks[row].label or "this tweak"
-        if QMessageBox.question(self, "Remove Tweak", f"Remove {label}?") != QMessageBox.Yes:
+        label = self.template.tweaks[row].label or _("this tweak")
+        if QMessageBox.question(self, _("Remove Tweak"), _("Remove {name}?").format(name=label)) != QMessageBox.Yes:
             return
         del self.template.tweaks[row]
         self._after_list_change(min(row, len(self.template.tweaks) - 1))
@@ -679,14 +689,14 @@ class MainWindow(QMainWindow):
         self.details.show_files(self.template)
         self.mark_dirty()
         self._commit()
-        Toast.show_message(self, f"Removed {len(unused)} unused file{'s' if len(unused) != 1 else ''}")
+        Toast.show_message(self, n_(len(unused), "Removed {n} unused file", "Removed {n} unused files"))
 
     # ----- files -----
     def _confirm_discard(self) -> bool:
         if not self.dirty:
             return True
         answer = QMessageBox.question(
-            self, "Unsaved Changes", "Save the changes to this template first?",
+            self, _("Unsaved Changes"), _("Save the changes to this template first?"),
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         if answer == QMessageBox.Save:
             return self.save_file()
@@ -720,9 +730,9 @@ class MainWindow(QMainWindow):
             action.triggered.connect(lambda _checked=False, p=path: self.open_recent(p))
         if recent:
             self.recent_menu.addSeparator()
-            self.recent_menu.addAction("Clear Menu", lambda: self.settings.setValue("recent", []))
+            self.recent_menu.addAction(_("Clear Menu"), lambda: self.settings.setValue("recent", []))
         else:
-            self.recent_menu.addAction("No recent templates").setEnabled(False)
+            self.recent_menu.addAction(_("No recent templates")).setEnabled(False)
 
     def open_recent(self, path):
         self._end_tour()
@@ -730,7 +740,7 @@ class MainWindow(QMainWindow):
             return
         if not os.path.exists(path):
             self.settings.setValue("recent", [p for p in self.recent_files() if p != path])
-            QMessageBox.warning(self, "Cannot Open", f"{path} no longer exists.")
+            QMessageBox.warning(self, _("Cannot Open"), _("{path} no longer exists.").format(path=path))
             return
         self.open_file(path)
 
@@ -764,13 +774,13 @@ class MainWindow(QMainWindow):
             self._end_tour()
             if not self._confirm_discard():
                 return
-            path, _ = QFileDialog.getOpenFileName(self, "Open Template", self._folder(), FILE_FILTER)
+            path, _filter = QFileDialog.getOpenFileName(self, _("Open Template"), self._folder(), FILE_FILTER)
             if not path:
                 return
         try:
             template = batter.load(path)
         except batter.BatterError as error:
-            QMessageBox.warning(self, "Cannot Open", str(error))
+            QMessageBox.warning(self, _("Cannot Open"), str(error))
             return
         self.settings.setValue("folder", os.path.dirname(path))
         self._remember(path)
@@ -784,11 +794,11 @@ class MainWindow(QMainWindow):
         found = rules.errors(self.issues)
         if not found:
             return True
-        box = QMessageBox(QMessageBox.Warning, "Save Template",
-                          f"The template has {len(found)} error{'s' if len(found) != 1 else ''}. "
-                          "GoldenNugget refuses to load it until they are fixed.", parent=self)
-        save = box.addButton("Save Anyway", QMessageBox.AcceptRole)
-        show = box.addButton("Show Problems", QMessageBox.ActionRole)
+        box = QMessageBox(QMessageBox.Warning, _("Save Template"),
+                          n_(len(found), "The template has {n} error.", "The template has {n} errors.") + " "
+                          + _("GoldenNugget refuses to load it until they are fixed."), parent=self)
+        save = box.addButton(_("Save Anyway"), QMessageBox.AcceptRole)
+        show = box.addButton(_("Show Problems"), QMessageBox.ActionRole)
         box.addButton(QMessageBox.Cancel)
         box.setDefaultButton(save)
         box.exec()
@@ -808,7 +818,7 @@ class MainWindow(QMainWindow):
 
     def _save_as(self) -> bool:
         name = os.path.basename(self.path) if self.path else slug(self.template.title) + ".batter"
-        path, _ = QFileDialog.getSaveFileName(self, "Save Template", os.path.join(self._folder(), name),
+        path, _filter = QFileDialog.getSaveFileName(self, _("Save Template"), os.path.join(self._folder(), name),
                                               FILE_FILTER)
         if not path:
             return False
@@ -820,7 +830,7 @@ class MainWindow(QMainWindow):
         try:
             batter.save(self.template, path)
         except OSError as error:
-            QMessageBox.warning(self, "Cannot Save", str(error))
+            QMessageBox.warning(self, _("Cannot Save"), str(error))
             return False
         self.path = path
         self.dirty = False
@@ -830,7 +840,7 @@ class MainWindow(QMainWindow):
         self._remember(path)
         self._update_title()
         if self.isVisible():
-            Toast.show_message(self, f"Saved {os.path.basename(path)}")
+            Toast.show_message(self, _("Saved {name}").format(name=os.path.basename(path)))
         return True
 
     def submit_to_catalog(self):
@@ -839,53 +849,62 @@ class MainWindow(QMainWindow):
         found = rules.errors(self.issues)
         if found:
             self.sidebar.set_current(CHECK)
-            QMessageBox.warning(self, "Submit to Catalog",
-                                f"Fix the {len(found)} error(s) on the Check page first. "
-                                "GoldenNugget would refuse this template.")
+            QMessageBox.warning(self, _("Submit to Catalog"),
+                                n_(len(found), "Fix the {n} error on the Check page first.",
+                                   "Fix the {n} errors on the Check page first.") + " "
+                                + _("GoldenNugget would refuse this template."))
             return
         name, ok = QInputDialog.getText(
-            self, "Submit to Catalog", "Catalog id (the file name: lowercase letters, digits and dashes):",
+            self, _("Submit to Catalog"), _("Catalog id (the file name: lowercase letters, digits and dashes):"),
             text=slug(self.template.title))
         if not ok:
             return
         name = name.strip()
         if not rules.CATALOG_ID_PATTERN.match(name):
-            QMessageBox.warning(self, "Submit to Catalog",
-                                "Use 2–48 lowercase letters, digits and dashes, for example dock-tweaks.")
+            QMessageBox.warning(self, _("Submit to Catalog"),
+                                _("Use 2–48 lowercase letters, digits and dashes, for example dock-tweaks."))
             return
-        folder = QFileDialog.getExistingDirectory(self, "Where to save the file to upload", self._folder())
+        folder = QFileDialog.getExistingDirectory(self, _("Where to save the file to upload"), self._folder())
         if not folder:
             return
         target = os.path.join(folder, name + ".batter")
         if os.path.exists(target) and os.path.abspath(target) != os.path.abspath(self.path) \
-                and QMessageBox.question(self, "Submit to Catalog", f"{target} exists. Replace it?") != QMessageBox.Yes:
+                and QMessageBox.question(self, _("Submit to Catalog"), _("{path} exists. Replace it?").format(path=target)) != QMessageBox.Yes:
             return
         data = batter.dumps(self.template)
         if len(data) > rules.MAX_TEMPLATE_BYTES:
-            QMessageBox.warning(self, "Submit to Catalog", "The catalog accepts templates of at most 25 MB; "
-                                f"this one is {len(data) / 1024 / 1024:.1f} MB.")
+            QMessageBox.warning(self, _("Submit to Catalog"),
+                                _("The catalog accepts templates of at most 25 MB; this one is {size} MB.")
+                                .format(size=f"{len(data) / 1024 / 1024:.1f}"))
             return
         try:
             batter.save(self.template, target, data)
         except OSError as error:
-            QMessageBox.warning(self, "Cannot Save", str(error))
+            QMessageBox.warning(self, _("Cannot Save"), str(error))
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
         QDesktopServices.openUrl(QUrl(CATALOG_UPLOAD_URL))
         QMessageBox.information(
-            self, "Submit to Catalog",
-            f"Saved {name}.batter and opened GitHub.\n\n"
-            "1. Drag the file onto the GitHub page.\n"
-            "2. Click Propose changes, then Create pull request.\n\n"
-            "GitHub makes a copy (fork) of the catalog for you if you need one. A check lists every "
-            "file your tweaks write, and the team reviews it before it appears in GoldenNugget.")
+            self, _("Submit to Catalog"),
+            _("Saved {name}.batter and opened GitHub.\n\n"
+              "1. Drag the file onto the GitHub page.\n"
+              "2. Click Propose changes, then Create pull request.\n\n"
+              "GitHub makes a copy (fork) of the catalog for you if you need one. A check lists every "
+              "file your tweaks write, and the team reviews it before it appears in GoldenNugget.").format(name=name))
+
+    def set_language(self, code):
+        if code == self.settings.value("language", "system"):
+            return
+        self.settings.setValue("language", code)
+        QMessageBox.information(self, _("Language"), _("The new language is used after a restart of {app}.")
+                                .format(app=APP_NAME))
 
     def about(self):
         from .. import __version__
         QMessageBox.about(self, APP_NAME,
-                          f"{APP_NAME} {__version__}\n\nBuilds GoldenNugget .batter templates with "
-                          "community tweaks (format 3) and checks them with GoldenNugget's rules.\n\n"
-                          "Controls: awesomeUI.")
+                          f"{APP_NAME} {__version__}\n\n"
+                          + _("Builds GoldenNugget .batter templates with community tweaks (format 3) and "
+                              "checks them with GoldenNugget's rules.") + "\n\n" + _("Controls: awesomeUI."))
 
     # ----- unsaved work and updates -----
     @staticmethod
@@ -919,10 +938,10 @@ class MainWindow(QMainWindow):
         if not os.path.exists(path):
             return False
         original = self.settings.value("recovery/path", "") or ""
-        name = os.path.basename(original) if original else "an unsaved template"
+        name = os.path.basename(original) if original else _("an unsaved template")
         answer = QMessageBox.question(
-            self, "Restore Unsaved Changes",
-            f"{APP_NAME} closed last time without saving the changes to {name}. Restore them?",
+            self, _("Restore Unsaved Changes"),
+            _("{app} closed last time without saving the changes to {name}. Restore them?").format(app=APP_NAME, name=name),
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
         if answer != QMessageBox.Yes:
             self.clear_recovery()
@@ -930,7 +949,7 @@ class MainWindow(QMainWindow):
         try:
             template = batter.load(path)
         except batter.BatterError as error:
-            QMessageBox.warning(self, "Restore Unsaved Changes", str(error))
+            QMessageBox.warning(self, _("Restore Unsaved Changes"), str(error))
             self.clear_recovery()
             return False
         self.load_template(template, original if original and os.path.exists(original) else "")
@@ -957,20 +976,21 @@ class MainWindow(QMainWindow):
         manual = getattr(self, "_manual_update_check", False)
         if version:
             self.update_url = url or RELEASES_URL
-            self.update_button.setText(f"Version {version} is available")
+            self.update_button.setText(_("Version {version} is available").format(version=version))
             self.update_button.show()
         if not manual:
             return
         from .. import __version__
         if error:
-            QMessageBox.warning(self, "Check for Updates", f"Could not reach GitHub: {error}")
+            QMessageBox.warning(self, _("Check for Updates"), _("Could not reach GitHub: {error}").format(error=error))
         elif version:
-            if QMessageBox.question(self, "Check for Updates",
-                                    f"{APP_NAME} {version} is available (this is {__version__}). "
-                                    "Open the download page?") == QMessageBox.Yes:
+            if QMessageBox.question(self, _("Check for Updates"),
+                                    _("{app} {version} is available (this is {current}). Open the download page?")
+                                    .format(app=APP_NAME, version=version, current=__version__)) == QMessageBox.Yes:
                 QDesktopServices.openUrl(QUrl(self.update_url))
         else:
-            QMessageBox.information(self, "Check for Updates", f"{APP_NAME} {__version__} is the latest version.")
+            QMessageBox.information(self, _("Check for Updates"),
+                                    _("{app} {version} is the latest version.").format(app=APP_NAME, version=__version__))
 
     def start_tour(self, speed=1.0):
         """Run the guided tour on an example template; the current template

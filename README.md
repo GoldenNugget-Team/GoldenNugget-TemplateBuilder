@@ -63,6 +63,7 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
   not close normally.
 - **File → Open Recent** and dragging a `.batter` file onto the window open it.
 - **Updates**: the app tells you when a new release is out (Help → Check for Updates).
+- **English and Russian** (View → Language), following the system by default.
 - Light and dark appearance (View → Appearance), following the system by default.
 
 | Template details | Check and preview |

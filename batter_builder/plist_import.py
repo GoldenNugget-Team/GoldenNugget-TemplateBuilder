@@ -7,6 +7,8 @@ editor's number cells take.
 """
 import plistlib
 
+from .i18n import _
+
 INT_LIMIT = 2 ** 31 - 1
 
 
@@ -20,15 +22,15 @@ def convert(value):
         return value
     if isinstance(value, int):
         if abs(value) > INT_LIMIT:
-            raise ValueError("a number beyond the 32-bit range")
+            raise ValueError(_("a number beyond the 32-bit range"))
         return value
     if isinstance(value, dict):
         return {str(key): convert(item) for key, item in value.items()}
     if isinstance(value, list):
         return [convert(item) for item in value]
     if isinstance(value, (bytes, bytearray)):
-        raise ValueError("data")
-    raise ValueError(type(value).__name__.replace("datetime", "a date"))
+        raise ValueError(_("data"))
+    raise ValueError(_("a date") if type(value).__name__ == "datetime" else type(value).__name__)
 
 
 def read(data: bytes) -> tuple:
@@ -37,9 +39,9 @@ def read(data: bytes) -> tuple:
     try:
         root = plistlib.loads(data)
     except Exception as error:      # plistlib raises several kinds
-        raise PlistError(f"This is not a plist file: {error}") from None
+        raise PlistError(_("This is not a plist file: {error}").format(error=error)) from None
     if not isinstance(root, dict):
-        raise PlistError("The plist holds no keys: its top level is not a dictionary.")
+        raise PlistError(_("The plist holds no keys: its top level is not a dictionary."))
     values, skipped = {}, []
     for key, value in root.items():
         try:
