@@ -330,6 +330,28 @@ class Window(unittest.TestCase):
         actions["Move Down"].trigger()
         self.assertEqual(window.current_tweak(), 2)
 
+    def test_import_keys_from_a_plist(self):
+        import plistlib
+        from batter_builder.ui.value_table import ImportDialog
+        path = os.path.join(tempfile.mkdtemp(), "prefs.plist")
+        with open(path, "wb") as handle:
+            plistlib.dump({"SBDockAlpha": 0.5, "SBHideDock": True, "Other": "x"}, handle)
+        values = self.window.editor.writes.form.values
+        values.add_row()
+        values.table.item(0, 0).setText("SBHideDock")         # already there: gets the plist's value
+
+        def pick(dialog):
+            dialog.filter.setText("sb")
+            self.assertTrue(dialog.tree.findItems("Other", Qt.MatchExactly)[0].isHidden())
+            dialog._check_visible(Qt.Checked)
+            self.assertEqual(dialog.buttons.button(dialog.buttons.StandardButton.Ok).text(), "Import 2 Keys")
+            return ImportDialog.Accepted
+        with patch.object(ImportDialog, "exec", pick):
+            values.import_plist(path)
+        self.assertEqual(self.window.template.tweaks[0].writes[0].values, {"SBHideDock": True, "SBDockAlpha": 0.5})
+        self.assertEqual(values.table.rowCount(), 2)
+        self.assertEqual(values.errors(), [])
+
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \
                 patch("batter_builder.ui.main_window.QInputDialog.getText") as ask:

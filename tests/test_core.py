@@ -214,5 +214,21 @@ class Files(unittest.TestCase):
                 rules.validate(template)
 
 
+class PlistImport(unittest.TestCase):
+    def test_reads_what_config_json_can_hold(self):
+        import datetime
+        import plistlib
+        from batter_builder import plist_import
+        data = plistlib.dumps({"On": True, "Count": 3, "Alpha": 0.5, "Name": "x", "List": [1, {"a": "b"}],
+                               "Blob": b"\x00", "When": datetime.datetime(2026, 1, 1), "Huge": 2 ** 40},
+                              fmt=plistlib.FMT_BINARY)
+        values, skipped = plist_import.read(data)
+        self.assertEqual(values, {"On": True, "Count": 3, "Alpha": 0.5, "Name": "x", "List": [1, {"a": "b"}]})
+        self.assertEqual(sorted(note.split(":")[0] for note in skipped), ["Blob", "Huge", "When"])
+        for bad in (b"nope", plistlib.dumps([1, 2])):
+            with self.assertRaises(plist_import.PlistError):
+                plist_import.read(bad)
+
+
 if __name__ == "__main__":
     unittest.main()

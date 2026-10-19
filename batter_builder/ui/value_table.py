@@ -3,12 +3,14 @@ import json
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QHeaderView, QLineEdit,
-    QSpinBox, QTableWidget, QVBoxLayout, QWidget,
+    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QHBoxLayout,
+    QHeaderView, QLabel, QLineEdit, QMessageBox, QSpinBox, QTableWidget, QTreeWidget,
+    QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
+from .. import plist_import
 from ..model import VALUE_TOKEN
-from .parts import button
+from .parts import button, muted
 
 BOOLEAN, INTEGER, REAL, STRING, CONTROL, STRUCTURE = (
     "Boolean", "Integer", "Real", "String", "Control value", "Array / Dictionary (JSON)")
@@ -124,6 +126,7 @@ class ValuesTable(QWidget):
         buttons.addWidget(add)
         buttons.addWidget(remove)
         buttons.addStretch()
+        buttons.addWidget(button("Import from Plist…", self.import_plist, "upload"))
         layout.addLayout(buttons)
 
     def set_values(self, values: dict):
@@ -195,6 +198,42 @@ class ValuesTable(QWidget):
         self.table.setCurrentCell(self.table.rowCount() - 1, self.KEY)
         self.table.editItem(self.table.item(self.table.rowCount() - 1, self.KEY))
 
+    def import_plist(self, path: str = ""):
+        if not path:
+            path, _ = QFileDialog.getOpenFileName(self, "Import Keys from a Plist", "",
+                                                  "Property lists (*.plist);;All files (*)")
+            if not path:
+                return
+        try:
+            with open(path, "rb") as handle:
+                values, skipped = plist_import.read(handle.read())
+        except (OSError, plist_import.PlistError) as error:
+            QMessageBox.warning(self, "Import from Plist", str(error))
+            return
+        if not values:
+            QMessageBox.warning(self, "Import from Plist", "The plist has no keys that can be written.")
+            return
+        dialog = ImportDialog(values, skipped, self)
+        if dialog.exec() == QDialog.Accepted:
+            self.add_values(dialog.chosen())
+
+    def add_values(self, values: dict):
+        """Add rows for ``values``; a key that is already there gets the new
+        value."""
+        rows = {self._key(row): row for row in range(self.table.rowCount())}
+        self._loading = True
+        for key, value in values.items():
+            if key not in rows:
+                self._append(key, type_of(value), value)
+                continue
+            combo = self.table.cellWidget(rows[key], self.TYPE)
+            combo.blockSignals(True)
+            combo.setCurrentText(type_of(value))
+            combo.blockSignals(False)
+            self._set_editor(rows[key], type_of(value), value)
+        self._loading = False
+        self._store()
+
     def remove_row(self):
         row = self.table.currentRow()
         if row >= 0:
@@ -213,3 +252,72 @@ class ValuesTable(QWidget):
         self.values.clear()
         self.values.update(rebuilt)
         self.changed.emit()
+
+
+class ImportDialog(QDialog):
+    """Pick which keys of a plist to import."""
+
+    def __init__(self, values: dict, skipped: list, parent=None):
+        super().__init__(parent)
+        self.values = values
+        self.setWindowTitle("Import from Plist")
+        self.resize(640, 520)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(f"{len(values)} key{'s' if len(values) != 1 else ''} found. "
+                                "Tick the ones this write should set."))
+        self.filter = QLineEdit()
+        self.filter.setPlaceholderText("Filter keys")
+        self.filter.setClearButtonEnabled(True)
+        self.filter.textChanged.connect(self._filter)
+        layout.addWidget(self.filter)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["Key", "Type", "Value"])
+        self.tree.setRootIsDecorated(False)
+        self.tree.setColumnWidth(0, 260)
+        self.tree.setColumnWidth(1, 120)
+        for key, value in values.items():
+            text = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict, bool)) else str(value)
+            item = QTreeWidgetItem([key, type_of(value).split(" (")[0], text[:200]])
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.Unchecked)
+            item.setToolTip(2, text[:2000])
+            self.tree.addTopLevelItem(item)
+        self.tree.itemChanged.connect(self._count)
+        layout.addWidget(self.tree, 1)
+        row = QHBoxLayout()
+        row.addWidget(button("Select All", lambda: self._check_visible(Qt.Checked)))
+        row.addWidget(button("Select None", lambda: self._check_visible(Qt.Unchecked)))
+        row.addStretch()
+        layout.addLayout(row)
+        if skipped:
+            note = muted(f"Left out ({len(skipped)}), since config.json cannot hold them: "
+                         + "; ".join(skipped[:8]) + ("; …" if len(skipped) > 8 else ""))
+            layout.addWidget(note)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+        self._count()
+
+    def _items(self):
+        return [self.tree.topLevelItem(index) for index in range(self.tree.topLevelItemCount())]
+
+    def _filter(self, text):
+        needle = text.strip().lower()
+        for item in self._items():
+            item.setHidden(bool(needle) and needle not in item.text(0).lower())
+
+    def _check_visible(self, state):
+        for item in self._items():
+            if not item.isHidden():
+                item.setCheckState(0, state)
+
+    def _count(self, *_):
+        count = len(self.chosen())
+        ok = self.buttons.button(QDialogButtonBox.Ok)
+        ok.setText(f"Import {count} Key{'s' if count != 1 else ''}" if count else "Import")
+        ok.setEnabled(bool(count))
+
+    def chosen(self) -> dict:
+        keys = [item.text(0) for item in self._items() if item.checkState(0) == Qt.Checked]
+        return {key: self.values[key] for key in keys}
