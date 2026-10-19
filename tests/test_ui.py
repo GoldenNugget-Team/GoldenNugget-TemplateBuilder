@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QComboBox, QMessageBox, QSlider
 
 APP = QApplication.instance() or QApplication([])
 QSettings.setDefaultFormat(QSettings.IniFormat)
@@ -383,6 +383,36 @@ class Window(unittest.TestCase):
         send(item, QEvent.MouseButtonPress, 5)
         send(item, QEvent.MouseButtonRelease, 5, Qt.NoButton)
         self.assertEqual([t.id for t in window.template.tweaks], ["tweak-1", "tweak-2", "tweak-3"])
+
+    def test_iphone_preview(self):
+        from batter_builder.model import Choice, Control, Write
+        window = self.window
+        tweak = window.template.tweaks[0]
+        tweak.label = "Dock Opacity"
+        tweak.writes[0].values = {"SBDockAlpha": "$value", "Fixed": True}
+        tweak.writes_off = [Write("plist", tweak.writes[0].path, {"SBDockAlpha": 1})]
+        tweak.control = Control("slider", 0.5, 0, 1, 0.25)
+        window.template.tweaks.append(window.template.tweaks[0].__class__(
+            id="size", label="Size", default=True, writes=[Write("plist", tweak.writes[0].path, {"S": "$value"})],
+            control=Control("choice", 1, choices=[Choice("Small", 1), Choice("Big", 2)])))
+        window.load_template(window.template, "")
+        window.sidebar.set_current("preview")
+        page = window.preview
+        self.assertEqual(window.pages.currentWidget().widget(), page)
+        text = page.writes.toPlainText()
+        self.assertIn("○ Dock Opacity (off)", text)
+        self.assertIn("SBDockAlpha = 1", text)
+        self.assertIn("● Size (on, value 2)", text)
+
+        dock, size = page.rows
+        dock.switch.setChecked(True)
+        dock.control.findChild(QSlider).setValue(3)
+        size.control.findChild(QComboBox).setCurrentIndex(0)
+        text = page.writes.toPlainText()
+        self.assertIn("● Dock Opacity (on, value 0.75)", text)
+        self.assertIn("SBDockAlpha = 0.75", text)
+        self.assertIn("S = 1", text)
+        self.assertEqual(tweak.writes[0].values["SBDockAlpha"], "$value")    # the template is untouched
 
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \

@@ -18,13 +18,14 @@ from .. import APP_NAME, CATALOG_UPLOAD_URL, FORMAT_DOCS_URL, batter, rules
 from ..model import Template, Tweak, Write
 from . import icons, theme
 from .parts import button, card, header, muted, versions_row
+from .preview_page import PreviewPage
 from .tweak_editor import TweakEditor
 
 FILE_FILTER = "GoldenNugget templates (*.batter)"
 LEVEL_LABELS = {rules.ERROR: "Error", rules.WARNING: "Warning", rules.INFO: "Note"}
 LEVEL_ICONS = {rules.ERROR: ("error", "error"), rules.WARNING: ("warning", "warning"),
                rules.INFO: ("info", "success")}
-DETAILS, CHECK = "details", "check"
+DETAILS, CHECK, PREVIEW = "details", "check", "preview"
 MAX_RECENT = 8
 MAX_UNDO = 100
 
@@ -348,6 +349,8 @@ class MainWindow(QMainWindow):
         for page in (self.details, self.check, self.editor):
             self.pages.addWidget(scrolled(page))
         self.pages.addWidget(self.empty)
+        self.preview = PreviewPage()
+        self.pages.addWidget(scrolled(self.preview))
         right.addWidget(self.pages, 1)
         row.addLayout(right, 1)
         self.setCentralWidget(central)
@@ -360,6 +363,7 @@ class MainWindow(QMainWindow):
         sidebar.add_section("Template")
         sidebar.add_item(DETAILS, "Details", icons.icon("details", "text_secondary"))
         sidebar.add_item(CHECK, "Check and Preview", icons.icon("check", "text_secondary"))
+        sidebar.add_item(PREVIEW, "iPhone Preview", icons.icon("mobile", "text_secondary"))
         sidebar.add_section("Tweaks")
         for index, tweak in enumerate(self.template.tweaks):
             sidebar.add_item(f"tweak:{index}", tweak.label or tweak.id or "(no label)",
@@ -387,6 +391,9 @@ class MainWindow(QMainWindow):
         elif item_id == CHECK:
             self.revalidate()
             self.pages.setCurrentIndex(1)
+        elif item_id == PREVIEW:
+            self.preview.show_template(self.template)
+            self.pages.setCurrentIndex(4)
         else:
             index = int(item_id.split(":")[1])
             self.editor.edit(self.template, self.template.tweaks[index])

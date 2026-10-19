@@ -214,6 +214,20 @@ class Files(unittest.TestCase):
                 rules.validate(template)
 
 
+class Preview(unittest.TestCase):
+    def test_value_fills_in_exact_tokens(self):
+        from batter_builder import preview
+        tweak = Tweak(writes=[Write("plist", "/var/mobile/a.plist", {"A": "$value", "B": ["$value", "x$value"]})],
+                      control=Control("slider", 0, 0, 10, 2))
+        self.assertEqual(preview.writes_for(tweak, True, 4)[0].values, {"A": 4, "B": [4, "x$value"]})
+        self.assertEqual(tweak.writes[0].values["A"], "$value")
+        self.assertEqual(preview.writes_for(tweak, False, 4), [])
+        self.assertEqual(preview.slider_steps(tweak.control), 5)
+        self.assertEqual(preview.slider_value(tweak.control, 5), 10)
+        self.assertEqual(preview.slider_value(Control("slider", 0, 0, 1, 0.1), 3), 0.3)
+        self.assertEqual(preview.slider_steps(Control("slider", 0, 1, 0, 1)), -1)
+
+
 class PlistImport(unittest.TestCase):
     def test_reads_what_config_json_can_hold(self):
         import datetime
