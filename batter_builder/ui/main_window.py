@@ -4,10 +4,10 @@ import copy
 import os
 import re
 
-from PySide6.QtCore import QSettings, Qt, QTimer, QUrl
+from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QFont, QKeySequence
 from PySide6.QtWidgets import (
-    QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow, QMessageBox,
+    QApplication, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow, QMessageBox,
     QPlainTextEdit, QScrollArea, QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -171,6 +171,67 @@ class CheckPage(QWidget):
         self.preview.setPlainText(config_text)
 
 
+class TweakDrag(QObject):
+    """Reorders tweaks by dragging their sidebar entries: a line shows where
+    the tweak lands when the mouse is let go."""
+
+    def __init__(self, window):
+        super().__init__(window)
+        self.window = window
+        self.items = []
+        self.line = None
+        self.source = -1
+        self.start = None
+        self.dragging = False
+
+    def watch(self, sidebar, count):
+        self.items = [sidebar.item(f"tweak:{index}") for index in range(count)]
+        self.source, self.start, self.dragging = -1, None, False
+        if not self.items:
+            return
+        for item in self.items:
+            item.installEventFilter(self)
+        self.line = QFrame(self.items[0].parentWidget())
+        self.line.setFixedHeight(2)
+        self.line.setStyleSheet(f"background: {theme.ThemeHost.instance().colors.accent};")
+        self.line.hide()
+
+    def _slot(self, item, pos) -> int:
+        """Where the dragged tweak would go: 0 is above the first tweak."""
+        y = item.mapTo(item.parentWidget(), pos).y()
+        return sum(1 for other in self.items if other.y() + other.height() / 2 < y)
+
+    def eventFilter(self, item, event):
+        kind = event.type()
+        if kind == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            self.source, self.start, self.dragging = self.items.index(item), event.position().toPoint(), False
+        elif kind == QEvent.MouseMove and self.start is not None and event.buttons() & Qt.LeftButton:
+            pos = event.position().toPoint()
+            if not self.dragging and (pos - self.start).manhattanLength() >= QApplication.startDragDistance():
+                self.dragging = True
+                item.setCursor(Qt.ClosedHandCursor)
+            if self.dragging:
+                slot = self._slot(item, pos)
+                last = self.items[-1]
+                y = self.items[slot].y() - 1 if slot < len(self.items) else last.y() + last.height()
+                self.line.setGeometry(6, y, item.parentWidget().width() - 12, 2)
+                self.line.show()
+                self.line.raise_()
+                return True
+        elif kind == QEvent.MouseButtonRelease and self.start is not None:
+            dragging, source = self.dragging, self.source
+            self.source, self.start, self.dragging = -1, None, False
+            if dragging:
+                self.line.hide()
+                item.setDown(False)
+                item.setCursor(Qt.PointingHandCursor)
+                slot = self._slot(item, event.position().toPoint())
+                # the sidebar is rebuilt, which deletes this item
+                QTimer.singleShot(0, lambda: self.window.move_tweak_to(source, slot))
+                return True
+        return False
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -182,6 +243,7 @@ class MainWindow(QMainWindow):
         self.tour = None
         self._loading = False
         self._timer = QTimer(self, singleShot=True, interval=200, timeout=self.revalidate)
+        self._drag = TweakDrag(self)
         # Undo keeps copies of the whole template. Changes that come in quick
         # succession (typing) become one step when the edits pause.
         self._undo, self._redo = [], []
@@ -305,6 +367,7 @@ class MainWindow(QMainWindow):
         add = button("Add Tweak", self.add_tweak, "plus")
         sidebar.add_footer_widget(add)
         sidebar.currentChanged.connect(self._open_page)
+        self._drag.watch(sidebar, len(self.template.tweaks))
         self.sidebar = sidebar
         self.sidebar_slot.addWidget(sidebar)
         if sidebar.item(current) is None:
@@ -561,6 +624,17 @@ class MainWindow(QMainWindow):
             return
         del self.template.tweaks[row]
         self._after_list_change(min(row, len(self.template.tweaks) - 1))
+
+    def move_tweak_to(self, source, slot):
+        """Move tweak ``source`` to ``slot``, a gap between tweaks (0 is
+        before the first)."""
+        tweaks = self.template.tweaks
+        target = slot - 1 if slot > source else slot
+        if not 0 <= source < len(tweaks) or target == source:
+            return
+        self._commit()
+        tweaks.insert(target, tweaks.pop(source))
+        self._after_list_change(target)
 
     def move_tweak(self, step):
         self._commit()

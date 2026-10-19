@@ -352,6 +352,38 @@ class Window(unittest.TestCase):
         self.assertEqual(values.table.rowCount(), 2)
         self.assertEqual(values.errors(), [])
 
+    def test_drag_a_tweak_in_the_sidebar(self):
+        from PySide6.QtCore import QEvent, QPoint, QPointF
+        from PySide6.QtGui import QMouseEvent
+        window = self.window
+        window.show()
+        window.add_tweak()
+        window.add_tweak()
+        APP.processEvents()
+
+        def send(item, kind, y, buttons=Qt.LeftButton):
+            point = QPointF(10, y)
+            event = QMouseEvent(kind, point, item.mapToGlobal(point), Qt.LeftButton, buttons, Qt.NoModifier)
+            APP.sendEvent(item, event)
+
+        first, last = window.sidebar.item("tweak:0"), window.sidebar.item("tweak:2")
+        below = first.mapFromGlobal(last.mapToGlobal(QPoint(0, last.height() - 2))).y()
+        send(first, QEvent.MouseButtonPress, 5)
+        send(first, QEvent.MouseMove, 30)
+        self.assertTrue(window._drag.line.isVisible())
+        send(first, QEvent.MouseMove, below)
+        send(first, QEvent.MouseButtonRelease, below, Qt.NoButton)
+        APP.processEvents()
+        self.assertEqual([t.id for t in window.template.tweaks], ["tweak-2", "tweak-3", "tweak-1"])
+        self.assertEqual(window.current_tweak(), 2)
+        window.undo()
+        self.assertEqual([t.id for t in window.template.tweaks], ["tweak-1", "tweak-2", "tweak-3"])
+
+        item = window.sidebar.item("tweak:1")       # a plain click still opens the tweak
+        send(item, QEvent.MouseButtonPress, 5)
+        send(item, QEvent.MouseButtonRelease, 5, Qt.NoButton)
+        self.assertEqual([t.id for t in window.template.tweaks], ["tweak-1", "tweak-2", "tweak-3"])
+
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \
                 patch("batter_builder.ui.main_window.QInputDialog.getText") as ask:
