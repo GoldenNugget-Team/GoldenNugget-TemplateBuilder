@@ -6,8 +6,10 @@ resources) so an existing template can get tweaks without losing anything.
 Files are stored relative to the folder that holds config.json; a saved
 template always has config.json at the root.
 """
+import io
 import json
 import os
+import stat
 import tempfile
 import zipfile
 
@@ -67,17 +69,39 @@ def dumps_config(template: Template) -> str:
     return json.dumps(template.to_config(), indent=2, ensure_ascii=False) + "\n"
 
 
-def save(template: Template, path: str):
+def dumps(template: Template) -> bytes:
+    """The .batter file as bytes, so its size is known before anything is
+    written."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("config.json", dumps_config(template))
+        for name in sorted(template.entries):
+            archive.writestr(name, template.entries[name])
+    return buffer.getvalue()
+
+
+def _file_mode(path: str) -> int:
+    # mkstemp creates the file readable by its owner only; a saved template
+    # gets the mode of the file it replaces, or the usual one for new files.
+    try:
+        return stat.S_IMODE(os.stat(path).st_mode)
+    except OSError:
+        umask = os.umask(0)
+        os.umask(umask)
+        return 0o666 & ~umask
+
+
+def save(template: Template, path: str, data: bytes = None):
     """Write the template atomically: an interrupted save never replaces the
-    previous file."""
+    previous file. ``data`` is what ``dumps`` returned, if it was already
+    called."""
+    data = dumps(template) if data is None else data
     folder = os.path.dirname(os.path.abspath(path))
     handle, temporary = tempfile.mkstemp(prefix=".batter-", suffix=".tmp", dir=folder)
-    os.close(handle)
     try:
-        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("config.json", dumps_config(template))
-            for name in sorted(template.entries):
-                archive.writestr(name, template.entries[name])
+        with os.fdopen(handle, "wb") as output:
+            output.write(data)
+        os.chmod(temporary, _file_mode(path))
         os.replace(temporary, path)
     except BaseException:
         if os.path.exists(temporary):

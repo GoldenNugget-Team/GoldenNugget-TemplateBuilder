@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 APP = QApplication.instance() or QApplication([])
@@ -180,6 +180,51 @@ class Window(unittest.TestCase):
             window.submit_to_catalog()
         self.assertTrue(os.path.exists(os.path.join(folder, "dock-pack.batter")))
         self.assertIn("upload/main/templates", opened[-1].toString())
+
+    def test_recent_files_and_drop(self):
+        from PySide6.QtCore import QMimeData, QPointF, QUrl
+        from PySide6.QtGui import QDropEvent
+        window = self.window
+        window.settings.setValue("recent", [])
+        window.details.title.setText("Dock Pack")
+        window.details.author.setText("me")
+        folder = tempfile.mkdtemp()
+        first, second = os.path.join(folder, "a.batter"), os.path.join(folder, "b.batter")
+        self.assertTrue(window._write(first))
+        self.assertTrue(window._write(second))
+        self.assertEqual(window.recent_files(), [second, first])
+        window._fill_recent()
+        self.assertEqual([a.text() for a in window.recent_menu.actions()][:2], ["b.batter", "a.batter"])
+
+        os.remove(first)
+        with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning:
+            window.open_recent(first)
+        self.assertTrue(warning.called)
+        self.assertEqual(window.recent_files(), [second])
+
+        window.load_template(window.template.__class__(), "")
+        data = QMimeData()
+        data.setUrls([QUrl.fromLocalFile(second)])
+        event = QDropEvent(QPointF(5, 5), Qt.CopyAction, data, Qt.LeftButton, Qt.NoModifier)
+        window.dropEvent(event)
+        self.assertEqual(window.path, second)
+        self.assertEqual(window.template.title, "Dock Pack")
+
+    def test_submit_refuses_a_too_large_template_without_saving(self):
+        window = self.window
+        window.details.title.setText("Dock Pack")
+        window.details.author.setText("me")
+        window.editor.writes.form.values.add_row()
+        folder = tempfile.mkdtemp()
+        with patch("batter_builder.ui.main_window.QInputDialog.getText", return_value=("dock-pack", True)), \
+                patch("batter_builder.ui.main_window.QFileDialog.getExistingDirectory", return_value=folder), \
+                patch("batter_builder.ui.main_window.rules.MAX_TEMPLATE_BYTES", 10), \
+                patch("batter_builder.ui.main_window.QDesktopServices.openUrl") as opened, \
+                patch("batter_builder.ui.main_window.QMessageBox.warning") as warning:
+            window.submit_to_catalog()
+        self.assertTrue(warning.called)
+        self.assertFalse(opened.called)
+        self.assertEqual(os.listdir(folder), [])
 
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \

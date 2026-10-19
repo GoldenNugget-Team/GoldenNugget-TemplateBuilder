@@ -195,6 +195,24 @@ class Files(unittest.TestCase):
         self.assertEqual(Path(self.path("keep.batter")).read_bytes(), before)
         self.assertEqual([n for n in os.listdir(self.folder) if n.endswith(".tmp")], [])
 
+    def test_saved_file_is_readable_like_any_other(self):
+        umask = os.umask(0o022)
+        try:
+            batter.save(sample(), self.path("mode.batter"))
+            self.assertEqual(os.stat(self.path("mode.batter")).st_mode & 0o777, 0o644)
+            os.chmod(self.path("mode.batter"), 0o640)
+            batter.save(sample(), self.path("mode.batter"))
+            self.assertEqual(os.stat(self.path("mode.batter")).st_mode & 0o777, 0o640)
+        finally:
+            os.umask(umask)
+
+    def test_malformed_choices_still_open(self):
+        for choices in (5, "abc", [{"label": 5, "value": 1}, "x"]):
+            with self.subTest(choices=choices):
+                template = Template.from_config({"tweaks": [{"control": {"type": "choice", "choices": choices}}]})
+                self.assertTrue(all(isinstance(c.label, str) for c in template.tweaks[0].control.choices))
+                rules.validate(template)
+
 
 if __name__ == "__main__":
     unittest.main()

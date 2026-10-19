@@ -50,6 +50,7 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
 - **Guided Tour** (Help → Guided Tour): the app builds an example template by
   itself, explaining each step. Pause, skip steps, or end it with Esc or End Tour.
   Your own template comes back when the tour ends, and nothing is saved.
+- **File → Open Recent** and dragging a `.batter` file onto the window open it.
 - Light and dark appearance (View → Appearance), following the system by default.
 
 | Template details | Check and preview |

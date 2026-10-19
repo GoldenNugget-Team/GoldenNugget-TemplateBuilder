@@ -25,6 +25,7 @@ LEVEL_LABELS = {rules.ERROR: "Error", rules.WARNING: "Warning", rules.INFO: "Not
 LEVEL_ICONS = {rules.ERROR: ("error", "error"), rules.WARNING: ("warning", "warning"),
                rules.INFO: ("info", "success")}
 DETAILS, CHECK = "details", "check"
+MAX_RECENT = 8
 
 
 def slug(text: str) -> str:
@@ -180,6 +181,7 @@ class MainWindow(QMainWindow):
         self._build_menu()
         self._build_ui()
         self.resize(1320, 900)
+        self.setAcceptDrops(True)
         self.load_template(self.template, "")
 
     # ----- layout -----
@@ -194,6 +196,9 @@ class MainWindow(QMainWindow):
             if name:
                 action.setIcon(icons.icon(name))
             menu.addAction(action)
+            if text == "Open…":
+                self.recent_menu = menu.addMenu("Open Recent")
+                self.recent_menu.aboutToShow.connect(self._fill_recent)
         menu.addSeparator()
         menu.addAction(QAction("Quit", self, shortcut=QKeySequence.Quit, triggered=self.close))
         view = self.menuBar().addMenu("&View")
@@ -471,12 +476,72 @@ class MainWindow(QMainWindow):
     def _folder(self) -> str:
         return os.path.dirname(self.path) if self.path else self.settings.value("folder", os.path.expanduser("~"))
 
+    def _end_tour(self):
+        # Opening a file mid-tour would be undone when the tour puts the
+        # user's template back.
+        if self.tour is not None and self.tour.active:
+            self.tour.finish()
+
+    def recent_files(self) -> list:
+        value = self.settings.value("recent", [])
+        return [value] if isinstance(value, str) else list(value or [])
+
+    def _remember(self, path):
+        path = os.path.abspath(path)
+        recent = [p for p in self.recent_files() if p != path]
+        self.settings.setValue("recent", [path] + recent[:MAX_RECENT - 1])
+
+    def _fill_recent(self):
+        self.recent_menu.clear()
+        recent = self.recent_files()
+        for path in recent:
+            action = self.recent_menu.addAction(os.path.basename(path))
+            action.setToolTip(path)
+            action.setStatusTip(path)
+            action.triggered.connect(lambda _checked=False, p=path: self.open_recent(p))
+        if recent:
+            self.recent_menu.addSeparator()
+            self.recent_menu.addAction("Clear Menu", lambda: self.settings.setValue("recent", []))
+        else:
+            self.recent_menu.addAction("No recent templates").setEnabled(False)
+
+    def open_recent(self, path):
+        self._end_tour()
+        if not self._confirm_discard():
+            return
+        if not os.path.exists(path):
+            self.settings.setValue("recent", [p for p in self.recent_files() if p != path])
+            QMessageBox.warning(self, "Cannot Open", f"{path} no longer exists.")
+            return
+        self.open_file(path)
+
+    def dragEnterEvent(self, event):
+        if self._dropped_template(event):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        path = self._dropped_template(event)
+        if path:
+            event.acceptProposedAction()
+            self._end_tour()
+            if self._confirm_discard():
+                self.open_file(path)
+
+    @staticmethod
+    def _dropped_template(event) -> str:
+        urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
+        if len(urls) == 1 and urls[0].isLocalFile() and urls[0].toLocalFile().lower().endswith(".batter"):
+            return urls[0].toLocalFile()
+        return ""
+
     def new_file(self):
+        self._end_tour()
         if self._confirm_discard():
             self.load_template(new_template(), "")
 
     def open_file(self, path: str = ""):
         if not path:
+            self._end_tour()
             if not self._confirm_discard():
                 return
             path, _ = QFileDialog.getOpenFileName(self, "Open Template", self._folder(), FILE_FILTER)
@@ -488,6 +553,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot Open", str(error))
             return
         self.settings.setValue("folder", os.path.dirname(path))
+        self._remember(path)
         self.load_template(template, path)
 
     def save_file(self) -> bool:
@@ -512,6 +578,7 @@ class MainWindow(QMainWindow):
         self.path = path
         self.dirty = False
         self.settings.setValue("folder", os.path.dirname(path))
+        self._remember(path)
         self._update_title()
         if self.isVisible():
             Toast.show_message(self, f"Saved {os.path.basename(path)}")
@@ -543,13 +610,15 @@ class MainWindow(QMainWindow):
         if os.path.exists(target) and os.path.abspath(target) != os.path.abspath(self.path) \
                 and QMessageBox.question(self, "Submit to Catalog", f"{target} exists. Replace it?") != QMessageBox.Yes:
             return
+        data = batter.dumps(self.template)
+        if len(data) > rules.MAX_TEMPLATE_BYTES:
+            QMessageBox.warning(self, "Submit to Catalog", "The catalog accepts templates of at most 25 MB; "
+                                f"this one is {len(data) / 1024 / 1024:.1f} MB.")
+            return
         try:
-            batter.save(self.template, target)
+            batter.save(self.template, target, data)
         except OSError as error:
             QMessageBox.warning(self, "Cannot Save", str(error))
-            return
-        if os.path.getsize(target) > rules.MAX_TEMPLATE_BYTES:
-            QMessageBox.warning(self, "Submit to Catalog", "The catalog accepts templates of at most 25 MB.")
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
         QDesktopServices.openUrl(QUrl(CATALOG_UPLOAD_URL))

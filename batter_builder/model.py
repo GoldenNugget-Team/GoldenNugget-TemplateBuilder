@@ -59,8 +59,11 @@ class Control:
             control.max_length = raw.get("max_length", 200)
         else:
             control.default = raw.get("default", 0)
-            control.choices = [Choice(c.get("label", ""), c.get("value", ""))
-                               for c in raw.get("choices", []) if isinstance(c, dict)]
+            choices = raw.get("choices")
+            control.choices = [Choice(c.get("label") if isinstance(c.get("label"), str) else "",
+                                      c.get("value", ""))
+                               for c in (choices if isinstance(choices, list) else [])
+                               if isinstance(c, dict)]
         return control
 
 
