@@ -226,6 +226,55 @@ class Window(unittest.TestCase):
         self.assertFalse(opened.called)
         self.assertEqual(os.listdir(folder), [])
 
+    def test_undo_and_redo(self):
+        window, editor = self.window, self.window.editor
+        self.assertFalse(window.undo_action.isEnabled())
+        editor.label.setText("Dock")
+        editor.label.setText("Dock Opacity")       # typing in a row is one step
+        window._commit()
+        window.details.title.setText("Pack")
+        window.add_tweak()
+        self.assertEqual(len(window.template.tweaks), 2)
+
+        window.undo()                               # the added tweak
+        self.assertEqual(len(window.template.tweaks), 1)
+        self.assertEqual(window.template.title, "Pack")
+        window.undo()                               # the title
+        self.assertEqual(window.template.title, "")
+        self.assertEqual(window.details.title.text(), "")
+        window.undo()                               # the label
+        self.assertEqual(window.template.tweaks[0].label, "Tweak 1")
+        self.assertEqual(window.sidebar.item("tweak:0").label, "Tweak 1")
+        self.assertFalse(window.undo_action.isEnabled())
+        self.assertFalse(window.dirty)              # back to what was loaded
+
+        window.redo()
+        window.redo()
+        self.assertEqual((window.template.tweaks[0].label, window.template.title), ("Dock Opacity", "Pack"))
+        self.assertTrue(window.redo_action.isEnabled())
+        editor = window.editor
+        window.sidebar.set_current("tweak:0")
+        window.editor.id.setText("dock")           # a new change drops the redo steps
+        window._commit()
+        self.assertFalse(window.redo_action.isEnabled())
+        window.undo()
+        self.assertEqual(window.template.tweaks[0].id, "tweak-1")
+
+    def test_undo_brings_back_a_removed_tweak_and_its_file(self):
+        window = self.window
+        window.template.add_source("a.plist", b"1")
+        window.template.tweaks[0].writes[0] = window.template.tweaks[0].writes[0].__class__(
+            "file", "/var/mobile/Library/Preferences/a.plist", source="files/a.plist")
+        window.load_template(window.template, "")
+        with patch("batter_builder.ui.main_window.QMessageBox.question", return_value=QMessageBox.Yes):
+            window.remove_tweak()
+        self.assertEqual(window.template.tweaks, [])
+        self.assertIs(window.pages.currentWidget(), window.empty)
+        window.undo()
+        self.assertEqual(window.template.tweaks[0].writes[0].source, "files/a.plist")
+        self.assertEqual(window.template.entries, {"files/a.plist": b"1"})
+        self.assertEqual(window.sidebar.current_item_id(), "tweak:0")
+
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \
                 patch("batter_builder.ui.main_window.QInputDialog.getText") as ask:

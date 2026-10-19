@@ -26,6 +26,7 @@ LEVEL_ICONS = {rules.ERROR: ("error", "error"), rules.WARNING: ("warning", "warn
                rules.INFO: ("info", "success")}
 DETAILS, CHECK = "details", "check"
 MAX_RECENT = 8
+MAX_UNDO = 100
 
 
 def slug(text: str) -> str:
@@ -178,6 +179,11 @@ class MainWindow(QMainWindow):
         self.tour = None
         self._loading = False
         self._timer = QTimer(self, singleShot=True, interval=200, timeout=self.revalidate)
+        # Undo keeps copies of the whole template. Changes that come in quick
+        # succession (typing) become one step when the edits pause.
+        self._undo, self._redo = [], []
+        self._snapshot = self._saved = None
+        self._history_timer = QTimer(self, singleShot=True, interval=700, timeout=self._commit)
         self._build_menu()
         self._build_ui()
         self.resize(1320, 900)
@@ -201,6 +207,11 @@ class MainWindow(QMainWindow):
                 self.recent_menu.aboutToShow.connect(self._fill_recent)
         menu.addSeparator()
         menu.addAction(QAction("Quit", self, shortcut=QKeySequence.Quit, triggered=self.close))
+        edit = self.menuBar().addMenu("&Edit")
+        self.undo_action = QAction("Undo", self, shortcut=QKeySequence.Undo, triggered=self.undo, enabled=False)
+        self.redo_action = QAction("Redo", self, shortcut=QKeySequence.Redo, triggered=self.redo, enabled=False)
+        edit.addAction(self.undo_action)
+        edit.addAction(self.redo_action)
         view = self.menuBar().addMenu("&View")
         appearance = view.addMenu("Appearance")
         group = QActionGroup(self)
@@ -314,6 +325,14 @@ class MainWindow(QMainWindow):
     # ----- template state -----
     def load_template(self, template: Template, path: str):
         self.template, self.path = template, path
+        self._show_details()
+        self._build_sidebar("tweak:0" if template.tweaks and not path else DETAILS)
+        self.dirty = False
+        self.set_history(([], [], copy.deepcopy(template), self._state(template)))
+        self.revalidate()
+
+    def _show_details(self):
+        template = self.template
         self._loading = True
         details = self.details
         details.title.setText(template.title)
@@ -323,9 +342,6 @@ class MainWindow(QMainWindow):
         details.max_version.setText(template.max_version)
         details.tags.setText(", ".join(template.tags))
         self._loading = False
-        self._build_sidebar("tweak:0" if template.tweaks and not path else DETAILS)
-        self.dirty = False
-        self.revalidate()
 
     def _store_template(self, *_):
         if self._loading:
@@ -342,6 +358,8 @@ class MainWindow(QMainWindow):
     def mark_dirty(self):
         self.dirty = True
         self._timer.start()
+        self._history_timer.start()
+        self._update_undo_actions()
         self._update_title()
 
     def _update_title(self):
@@ -409,6 +427,80 @@ class MainWindow(QMainWindow):
         if isinstance(index, int) and 0 <= index < len(self.template.tweaks):
             self.sidebar.set_current(f"tweak:{index}")
 
+    # ----- undo -----
+    @staticmethod
+    def _state(template: Template):
+        return template.to_config(), dict(template.entries)
+
+    def history(self):
+        return self._undo, self._redo, self._snapshot, self._saved
+
+    def set_history(self, history):
+        self._undo, self._redo, self._snapshot, self._saved = history
+        self._history_timer.stop()
+        self._update_undo_actions()
+
+    def _commit(self):
+        """Make the changes since the last step one undo step."""
+        self._history_timer.stop()
+        if self._snapshot is None or self._state(self.template) == self._state(self._snapshot):
+            return
+        self._undo.append(self._snapshot)
+        del self._undo[:-MAX_UNDO]
+        self._redo.clear()
+        self._snapshot = copy.deepcopy(self.template)
+        self._update_undo_actions()
+
+    def _update_undo_actions(self):
+        self.undo_action.setEnabled(bool(self._undo) or self._history_timer.isActive())
+        self.redo_action.setEnabled(bool(self._redo))
+
+    def _tour_running(self) -> bool:
+        return self.tour is not None and self.tour.active
+
+    def undo(self):
+        if self._tour_running():
+            return
+        self._commit()
+        if self._undo:
+            self._redo.append(self._snapshot)
+            self._restore(self._undo.pop())
+
+    def redo(self):
+        if self._tour_running():
+            return
+        self._commit()
+        if self._redo:
+            self._undo.append(self._snapshot)
+            self._restore(self._redo.pop())
+
+    @staticmethod
+    def _changed_page(before: Template, after: Template, current: str) -> str:
+        """The page that shows what an undo or redo changed."""
+        head = lambda t: {k: v for k, v in t.to_config().items() if k != "tweaks"}
+        if head(before) != head(after):
+            return DETAILS
+        old = [tweak.to_config() for tweak in before.tweaks]
+        new = [tweak.to_config() for tweak in after.tweaks]
+        for index in range(max(len(old), len(new))):
+            if old[index:index + 1] != new[index:index + 1]:
+                return f"tweak:{min(index, len(new) - 1)}" if new else DETAILS
+        return current
+
+    def _restore(self, snapshot: Template):
+        current = self._changed_page(self.template, snapshot, self.sidebar.current_item_id() or DETAILS)
+        self.template = copy.deepcopy(snapshot)
+        self._show_details()
+        self._build_sidebar(current)
+        if not self.template.tweaks and current.startswith("tweak:"):
+            self.pages.setCurrentWidget(self.empty)
+        # the pages may tidy values while they show them; that is not a step
+        self._snapshot = copy.deepcopy(self.template)
+        self._history_timer.stop()
+        self.dirty = self._state(self.template) != self._saved
+        self._update_undo_actions()
+        self.revalidate()
+
     # ----- tweaks -----
     def _refresh_tweak_labels(self):
         for index, tweak in enumerate(self.template.tweaks):
@@ -417,12 +509,14 @@ class MainWindow(QMainWindow):
                 item.set_label(tweak.label or tweak.id or "(no label)")
 
     def _after_list_change(self, select):
+        self._commit()
         self._build_sidebar(f"tweak:{select}" if 0 <= select < len(self.template.tweaks) else DETAILS)
         if not self.template.tweaks:
             self.pages.setCurrentWidget(self.empty)
         self.mark_dirty()
 
     def add_tweak(self):
+        self._commit()
         used = {tweak.id for tweak in self.template.tweaks}
         number = len(self.template.tweaks) + 1
         while f"tweak-{number}" in used:
@@ -431,6 +525,7 @@ class MainWindow(QMainWindow):
         self._after_list_change(len(self.template.tweaks) - 1)
 
     def duplicate_tweak(self):
+        self._commit()
         row = self.current_tweak()
         if row < 0:
             return
@@ -445,6 +540,7 @@ class MainWindow(QMainWindow):
         self._after_list_change(row + 1)
 
     def remove_tweak(self):
+        self._commit()
         row = self.current_tweak()
         if row < 0:
             return
@@ -455,6 +551,7 @@ class MainWindow(QMainWindow):
         self._after_list_change(min(row, len(self.template.tweaks) - 1))
 
     def move_tweak(self, step):
+        self._commit()
         row = self.current_tweak()
         target = row + step
         tweaks = self.template.tweaks
@@ -479,7 +576,7 @@ class MainWindow(QMainWindow):
     def _end_tour(self):
         # Opening a file mid-tour would be undone when the tour puts the
         # user's template back.
-        if self.tour is not None and self.tour.active:
+        if self._tour_running():
             self.tour.finish()
 
     def recent_files(self) -> list:
@@ -577,6 +674,7 @@ class MainWindow(QMainWindow):
             return False
         self.path = path
         self.dirty = False
+        self._saved = self._state(self.template)
         self.settings.setValue("folder", os.path.dirname(path))
         self._remember(path)
         self._update_title()

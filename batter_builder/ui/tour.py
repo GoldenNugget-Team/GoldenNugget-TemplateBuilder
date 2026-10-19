@@ -184,7 +184,7 @@ class Tour(QObject):
         from .main_window import new_template
         window = self.window
         self.saved = (window.template, window.path, window.dirty,
-                      window.sidebar.current_item_id() if window.sidebar else None)
+                      window.sidebar.current_item_id() if window.sidebar else None, window.history())
         window.load_template(new_template(), "")
         central = window.centralWidget()
         self.overlay = Overlay(central)
@@ -215,8 +215,9 @@ class Tour(QObject):
         window = self.window
         for combo in window.findChildren(QComboBox):
             combo.hidePopup()
-        template, path, dirty, current = self.saved
+        template, path, dirty, current, history = self.saved
         window.load_template(template, path)
+        window.set_history(history)
         window.dirty = dirty
         window._update_title()
         if current and window.sidebar.item(current) is not None:
