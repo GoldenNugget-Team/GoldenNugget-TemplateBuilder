@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QSettings, Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 APP = QApplication.instance() or QApplication([])
@@ -274,6 +275,60 @@ class Window(unittest.TestCase):
         self.assertEqual(window.template.tweaks[0].writes[0].source, "files/a.plist")
         self.assertEqual(window.template.entries, {"files/a.plist": b"1"})
         self.assertEqual(window.sidebar.current_item_id(), "tweak:0")
+
+    def test_save_warns_about_errors(self):
+        window = self.window
+        folder = tempfile.mkdtemp()
+        path = os.path.join(folder, "broken.batter")
+        window.path = path
+        for choice, saved, page in (("Cancel", False, "tweak:0"), ("Show Problems", False, CHECK),
+                                    ("Save Anyway", True, CHECK)):
+            with self.subTest(choice=choice), patch.object(QMessageBox, "exec"), \
+                    patch.object(QMessageBox, "clickedButton",
+                                 lambda box, c=choice: next(b for b in box.buttons()
+                                                            if b.text().replace("&", "") == c)):
+                self.assertEqual(window.save_file(), saved)
+                self.assertEqual(os.path.exists(path), saved)
+                self.assertEqual(window.sidebar.current_item_id(), page)
+
+    def test_saving_during_the_tour_saves_the_users_template(self):
+        window = self.window
+        window.details.title.setText("Mine")
+        window.details.author.setText("me")
+        window.editor.writes.form.values.add_row()
+        path = os.path.join(tempfile.mkdtemp(), "mine.batter")
+        window._write(path)
+        window.start_tour(speed=50)
+        self.assertTrue(window.tour.active)
+        self.assertTrue(window.save_file())
+        self.assertFalse(window.tour.active)
+        from batter_builder import batter
+        self.assertEqual(batter.load(path).title, "Mine")
+
+    def test_remove_unused_files(self):
+        window = self.window
+        window.template.add_source("old.plist", b"1")
+        window.sidebar.set_current(DETAILS)
+        self.assertFalse(window.details.remove_unused.isHidden())
+        window.details.remove_unused.click()
+        self.assertEqual(window.template.entries, {})
+        self.assertTrue(window.details.remove_unused.isHidden())
+        window.undo()
+        self.assertEqual(window.template.entries, {"files/old.plist": b"1"})
+
+    def test_tweak_shortcuts(self):
+        from PySide6.QtGui import QKeySequence
+        window = self.window
+        actions = {a.text(): a for a in window.findChildren(QAction)}
+        self.assertEqual(actions["Add Tweak"].shortcut(), QKeySequence("Ctrl+T"))
+        actions["Add Tweak"].trigger()
+        actions["Duplicate Tweak"].trigger()
+        self.assertEqual([t.id for t in window.template.tweaks], ["tweak-1", "tweak-2", "tweak-2-2"])
+        actions["Move Up"].trigger()
+        self.assertEqual([t.id for t in window.template.tweaks], ["tweak-1", "tweak-2-2", "tweak-2"])
+        self.assertEqual(window.current_tweak(), 1)
+        actions["Move Down"].trigger()
+        self.assertEqual(window.current_tweak(), 2)
 
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \

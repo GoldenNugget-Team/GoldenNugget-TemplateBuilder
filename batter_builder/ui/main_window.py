@@ -90,10 +90,13 @@ class DetailsPage(QWidget):
         files, files_layout = card()
         self.files = muted("")
         files_layout.addWidget(self.files)
+        self.remove_unused = button("Remove Unused Files", window.remove_unused_files, "trash")
+        files_layout.addWidget(self.remove_unused, 0, Qt.AlignLeft)
         layout.addWidget(files)
         layout.addStretch()
 
     def show_files(self, template: Template):
+        self.remove_unused.setVisible(bool(template.unused_sources()))
         if not template.entries:
             self.files.setText("No files yet. A tweak's Whole file write adds one.")
             return
@@ -212,6 +215,15 @@ class MainWindow(QMainWindow):
         self.redo_action = QAction("Redo", self, shortcut=QKeySequence.Redo, triggered=self.redo, enabled=False)
         edit.addAction(self.undo_action)
         edit.addAction(self.redo_action)
+        tweak_menu = self.menuBar().addMenu("&Tweak")
+        for text, shortcut, handler, name in (
+                ("Add Tweak", "Ctrl+T", self.add_tweak, "plus"),
+                ("Duplicate Tweak", "Ctrl+D", self.duplicate_tweak, "copy"),
+                ("Move Up", "Alt+Up", lambda: self.move_tweak(-1), "up"),
+                ("Move Down", "Alt+Down", lambda: self.move_tweak(1), "down"),
+                ("Remove Tweak…", "Ctrl+Shift+Backspace", self.remove_tweak, "trash")):
+            tweak_menu.addAction(QAction(icons.icon(name), text, self, shortcut=QKeySequence(shortcut),
+                                         triggered=handler))
         view = self.menuBar().addMenu("&View")
         appearance = view.addMenu("Appearance")
         group = QActionGroup(self)
@@ -559,6 +571,18 @@ class MainWindow(QMainWindow):
             tweaks[row], tweaks[target] = tweaks[target], tweaks[row]
             self._after_list_change(target)
 
+    def remove_unused_files(self):
+        unused = self.template.unused_sources()
+        if not unused:
+            return
+        self._commit()
+        for name in unused:
+            del self.template.entries[name]
+        self.details.show_files(self.template)
+        self.mark_dirty()
+        self._commit()
+        Toast.show_message(self, f"Removed {len(unused)} unused file{'s' if len(unused) != 1 else ''}")
+
     # ----- files -----
     def _confirm_discard(self) -> bool:
         if not self.dirty:
@@ -653,10 +677,36 @@ class MainWindow(QMainWindow):
         self._remember(path)
         self.load_template(template, path)
 
+    def _confirm_errors(self) -> bool:
+        """Saving a template GoldenNugget would refuse is allowed, after a
+        warning: it may be work in progress."""
+        self.revalidate()
+        found = rules.errors(self.issues)
+        if not found:
+            return True
+        box = QMessageBox(QMessageBox.Warning, "Save Template",
+                          f"The template has {len(found)} error{'s' if len(found) != 1 else ''}. "
+                          "GoldenNugget refuses to load it until they are fixed.", parent=self)
+        save = box.addButton("Save Anyway", QMessageBox.AcceptRole)
+        show = box.addButton("Show Problems", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Cancel)
+        box.setDefaultButton(save)
+        box.exec()
+        if box.clickedButton() is show:
+            self.sidebar.set_current(CHECK)
+        return box.clickedButton() is save
+
     def save_file(self) -> bool:
-        return self._write(self.path) if self.path else self.save_as()
+        self._end_tour()      # the tour's example is never saved
+        if not self._confirm_errors():
+            return False
+        return self._write(self.path) if self.path else self._save_as()
 
     def save_as(self) -> bool:
+        self._end_tour()
+        return self._confirm_errors() and self._save_as()
+
+    def _save_as(self) -> bool:
         name = os.path.basename(self.path) if self.path else slug(self.template.title) + ".batter"
         path, _ = QFileDialog.getSaveFileName(self, "Save Template", os.path.join(self._folder(), name),
                                               FILE_FILTER)
@@ -683,6 +733,7 @@ class MainWindow(QMainWindow):
         return True
 
     def submit_to_catalog(self):
+        self._end_tour()
         self.revalidate()
         found = rules.errors(self.issues)
         if found:
