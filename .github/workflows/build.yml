@@ -4,6 +4,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      replace_linux_in:
+        description: 'Release tag whose Linux archive to rebuild from that tag and replace (leave empty for a test build)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -11,6 +16,7 @@ permissions:
 jobs:
   build-macos:
     name: macOS Universal2 (DMG and ZIP)
+    if: inputs.replace_linux_in == ''
     runs-on: macos-26
     timeout-minutes: 40
     env:
@@ -116,6 +122,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.replace_linux_in || github.ref }}
 
       - uses: actions/setup-python@v6
         with:
@@ -212,3 +220,20 @@ jobs:
             artifacts/SHA256SUMS-macOS.txt \
             artifacts/BatterBuilder-Windows.zip \
             artifacts/BatterBuilder-Linux.zip
+
+  replace-linux:
+    name: Replace the Linux archive in ${{ inputs.replace_linux_in }}
+    if: inputs.replace_linux_in != ''
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: BatterBuilder-Linux
+
+      - name: Upload over the release's copy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.replace_linux_in }}
+        run: gh release upload "$TAG" --clobber BatterBuilder-Linux.zip
