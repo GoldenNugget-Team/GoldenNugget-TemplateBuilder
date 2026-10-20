@@ -134,7 +134,7 @@ class Rules(unittest.TestCase):
         found = texts(rules.validate(Template(tags=["x" * 30])))
         self.assertIn("The template needs a title.", found)
         self.assertIn("The template needs an author.", found)
-        self.assertIn("Add at least one tweak.", found)
+        self.assertIn("Add at least one tweak or wallpaper option.", found)
         self.assertIn("Up to 8 tags of at most 24 characters.", found)
         template = sample()
         template.entries["Container/Library/a"] = b"x"
@@ -212,6 +212,72 @@ class Files(unittest.TestCase):
                 template = Template.from_config({"tweaks": [{"control": {"type": "choice", "choices": choices}}]})
                 self.assertTrue(all(isinstance(c.label, str) for c in template.tweaks[0].control.choices))
                 rules.validate(template)
+
+
+def wallpaper():
+    """A PosterBoard template with one option of each kind."""
+    template = Template(title="Glow", author="me", extra={
+        "domain": "AppDomain-com.apple.PosterBoard",
+        "resources": ["preview.png"], "previews": ["preview.png"],
+        "options": [
+            {"type": "replace", "label": "Background", "allowed_files": "Images (*.png)", "required": True,
+             "files": ["Container/descriptors/A/bg.png"], "associated_preview": "preview.png"},
+            {"type": "set", "label": "Speed", "files": ["Container/descriptors/A/main.caml"],
+             "identifier": "1", "key": "speed", "setter_type": "slider", "min_value": 0.5, "max_value": 3.0},
+            {"type": "remove", "label": "Clouds", "files": ["Container/descriptors/A/clouds.png"]},
+            {"type": "picker", "label": "Style", "options": [
+                {"label": "Day", "files": ["Container/descriptors/A/day.ca"]},
+                {"label": "Night", "files": ["Container/descriptors/A/night.ca"]}]},
+        ]})
+    for name in ("bg.png", "main.caml", "clouds.png", "day.ca", "night.ca"):
+        template.entries["Container/descriptors/A/" + name] = b"x"
+    template.entries["preview.png"] = b"png"
+    return template
+
+
+class WallpaperOptions(unittest.TestCase):
+    def test_a_complete_template_has_no_problems(self):
+        issues = rules.validate(wallpaper())
+        self.assertEqual([(i.where, i.text) for i in issues if i.level != rules.INFO], [])
+
+    def test_what_goldennugget_refuses(self):
+        template = wallpaper()
+        options = template.extra["options"]
+        del template.extra["domain"]
+        options[0].pop("allowed_files")
+        options[1]["setter_type"] = "dial"
+        options[2]["files"] = ["../escape.png"]
+        options[3]["rename"], options[3]["names"] = True, []
+        options.append({"type": "teleport", "label": "?"})
+        options.append({"type": "remove", "files": []})
+        found = {(i.where.split(" (")[0], i.text) for i in rules.errors(rules.validate(template))}
+        self.assertTrue(all(i.tweak == rules.OPTIONS for i in rules.errors(rules.validate(template))
+                            if i.where != "Template"))
+        for expected in (
+                ("Template", "A template with wallpaper options needs a domain, or its options are never applied."),
+                ("Option 1", "A replace option needs allowed files, for example Images (*.png *.jpg)."),
+                ("Option 2", "The setter is textbox, slider, toggle or color_picker."),
+                ("Option 3", "Unsafe path: ../escape.png"),
+                ("Option 4", "A renaming picker needs a name for each file of a choice."),
+                ("Option 5", "Option types are replace, set, remove, picker or bundle_id."),
+                ("Option 6", "Every option needs a label.")):
+            self.assertIn(expected, found)
+
+    def test_options_that_would_do_nothing_are_warnings(self):
+        template = wallpaper()
+        template.extra["options"][2]["files"] = ["Container/descriptors/A/missing.png"]
+        template.extra["previews"].append("other.png")
+        texts = [i.text for i in rules.validate(template) if i.level == rules.WARNING]
+        self.assertIn("Container/descriptors/A/missing.png matches no file in the template.", texts)
+        self.assertIn("The preview other.png is not listed in resources, so GoldenNugget does not show it.", texts)
+        template.extra["options"][2]["files"] = ["Container/descriptors/*/clouds.png"]   # wildcards resolve
+        self.assertNotIn("Container/descriptors/*/clouds.png matches no file in the template.",
+                         [i.text for i in rules.validate(template)])
+
+    def test_options_survive_saving(self):
+        path = os.path.join(tempfile.mkdtemp(), "w.batter")
+        batter.save(wallpaper(), path)
+        self.assertEqual(batter.load(path).to_config(), wallpaper().to_config())
 
 
 class Preview(unittest.TestCase):

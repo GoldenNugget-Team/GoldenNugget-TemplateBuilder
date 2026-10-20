@@ -487,6 +487,60 @@ class Window(unittest.TestCase):
         self.assertEqual(values.keys.model.rowCount(), 0)
         self.assertTrue(values.note.isHidden())
 
+    def test_wallpaper_options_page(self):
+        from batter_builder.ui.main_window import OPTIONS
+        window = self.window
+        folder = os.path.join(tempfile.mkdtemp(), "Container")
+        os.makedirs(os.path.join(folder, "descriptors", "A"))
+        for name in ("bg.png", "main.caml"):
+            Path(folder, "descriptors", "A", name).write_bytes(b"x")
+        window.sidebar.set_current(OPTIONS)
+        page = window.options
+        self.assertIs(page.right.currentWidget(), page.placeholder)
+        self.assertEqual(page.add_folder(folder), 2)
+        self.assertIn("Container/descriptors/A/bg.png", window.template.entries)
+        page.domain.setEditText("AppDomain-com.apple.PosterBoard")
+
+        page.add_option("replace")
+        form = page.form
+        form.label.setText("Background")
+        form.files.text.setPlainText("Container/descriptors/A/bg.png")
+        form.r_required.setChecked(True)
+        page.add_option("set")
+        form.s_identifier.setText("1")
+        form.s_key.setText("opacity")
+        form.s_setter.setCurrentIndex(form.s_setter.findData("slider"))
+        form.s_min.setText("0")
+        form.s_max.setText("1.5")
+        form.files.text.setPlainText("Container/descriptors/A/main.caml")
+        options = window.template.extra["options"]
+        self.assertEqual(options[0], {"type": "replace", "label": "Background", "allowed_files": "Images (*.png *.jpg *.heic)",
+                                      "files": ["Container/descriptors/A/bg.png"], "required": True})
+        self.assertEqual((options[1]["setter_type"], options[1]["min_value"], options[1]["max_value"]), ("slider", 0, 1.5))
+        window.revalidate()
+        self.assertEqual([i.text for i in rules.errors(window.issues) if i.tweak == rules.OPTIONS], [])
+
+        page.add_option("picker")
+        form.choices._add()
+        form.choices.label.setText("Night")
+        form.choices.files.text.setPlainText("Container/descriptors/A/main.caml")
+        self.assertEqual(options[2]["options"], [{"label": "Night", "files": ["Container/descriptors/A/main.caml"]}])
+        form.r_required.setChecked(False)          # another type's field: no effect on the picker
+        self.assertNotIn("required", options[2])
+
+        page.list.setCurrentRow(0)
+        page._remove()
+        self.assertEqual([o["type"] for o in options], ["set", "picker"])
+        window._commit()
+        window.undo()
+        self.assertEqual([o["type"] for o in window.template.extra["options"]], ["replace", "set", "picker"])
+        self.assertEqual(window.sidebar.current_item_id(), OPTIONS)
+
+        del window.template.extra["domain"]
+        window.revalidate()
+        self.assertEqual(window.sidebar.item(OPTIONS) is not None, True)
+        self.assertTrue(any(i.tweak == rules.OPTIONS for i in rules.errors(window.issues)))
+
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \
                 patch("batter_builder.ui.main_window.QInputDialog.getText") as ask:

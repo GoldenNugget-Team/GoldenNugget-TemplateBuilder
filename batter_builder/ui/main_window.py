@@ -20,6 +20,7 @@ from ..i18n import _, n_
 from ..model import Template, Tweak, Write
 from . import icons, theme
 from .parts import button, card, header, muted, versions_row
+from .options_page import OptionsPage
 from .preview_page import PreviewPage
 from .tweak_editor import TweakEditor
 
@@ -27,7 +28,7 @@ FILE_FILTER = _("GoldenNugget templates (*.batter)")
 LEVEL_LABELS = {rules.ERROR: _("Error"), rules.WARNING: _("Warning"), rules.INFO: _("Note")}
 LEVEL_ICONS = {rules.ERROR: ("error", "error"), rules.WARNING: ("warning", "warning"),
                rules.INFO: ("info", "success")}
-DETAILS, CHECK, PREVIEW = "details", "check", "preview"
+DETAILS, CHECK, PREVIEW, OPTIONS = "details", "check", "preview", "options"
 MAX_RECENT = 8
 MAX_UNDO = 100
 AUTOSAVE_MS = 60 * 1000
@@ -378,6 +379,10 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.empty)
         self.preview = PreviewPage()
         self.pages.addWidget(scrolled(self.preview))
+        self.options = OptionsPage()
+        self.options.changed.connect(self.mark_dirty)
+        self.options.commit = self._commit
+        self.pages.addWidget(scrolled(self.options))
         right.addWidget(self.pages, 1)
         row.addLayout(right, 1)
         self.setCentralWidget(central)
@@ -389,6 +394,7 @@ class MainWindow(QMainWindow):
         sidebar = Sidebar(theme=theme.sidebar_theme(), collapsible=False)
         sidebar.add_section(_("Template"))
         sidebar.add_item(DETAILS, _("Details"), icons.icon("details", "text_secondary"))
+        sidebar.add_item(OPTIONS, _("Wallpaper Options"), icons.icon("file", "text_secondary"))
         sidebar.add_item(CHECK, _("Check and Preview"), icons.icon("check", "text_secondary"))
         sidebar.add_item(PREVIEW, _("iPhone Preview"), icons.icon("mobile", "text_secondary"))
         sidebar.add_section(_("Tweaks"))
@@ -421,6 +427,9 @@ class MainWindow(QMainWindow):
         elif item_id == PREVIEW:
             self.preview.show_template(self.template)
             self.pages.setCurrentIndex(4)
+        elif item_id == OPTIONS:
+            self.options.show_template(self.template)
+            self.pages.setCurrentIndex(5)
         else:
             index = int(item_id.split(":")[1])
             self.editor.edit(self.template, self.template.tweaks[index])
@@ -491,6 +500,8 @@ class MainWindow(QMainWindow):
             return
         errors = rules.errors(self.issues)
         self._set_badge(CHECK, str(len(errors)) if errors else "")
+        options = sum(1 for issue in errors if issue.tweak == rules.OPTIONS)
+        self._set_badge(OPTIONS, str(options) if options else "")
         for index in range(len(self.template.tweaks)):
             count = sum(1 for issue in errors if issue.tweak == index)
             self._set_badge(f"tweak:{index}", str(count) if count else "")
@@ -533,7 +544,9 @@ class MainWindow(QMainWindow):
 
     def _jump_to_problem(self, item):
         index = item.data(0, Qt.UserRole)
-        if isinstance(index, int) and 0 <= index < len(self.template.tweaks):
+        if index == rules.OPTIONS:
+            self.sidebar.set_current(OPTIONS)
+        elif isinstance(index, int) and 0 <= index < len(self.template.tweaks):
             self.sidebar.set_current(f"tweak:{index}")
 
     # ----- undo -----
@@ -586,9 +599,14 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _changed_page(before: Template, after: Template, current: str) -> str:
         """The page that shows what an undo or redo changed."""
-        head = lambda t: {k: v for k, v in t.to_config().items() if k != "tweaks"}
-        if head(before) != head(after):
+        wallpaper = ("domain", "options", "previews", "resources", "preview_layout", "banner_text")
+        part = lambda t, keys: {k: v for k, v in t.to_config().items() if k in keys}
+        details = lambda t: {k: v for k, v in t.to_config().items() if k != "tweaks" and k not in wallpaper}
+        if details(before) != details(after) or before.entries.keys() != after.entries.keys() and \
+                part(before, wallpaper) == part(after, wallpaper):
             return DETAILS
+        if part(before, wallpaper) != part(after, wallpaper) or before.entries.keys() != after.entries.keys():
+            return OPTIONS
         old = [tweak.to_config() for tweak in before.tweaks]
         new = [tweak.to_config() for tweak in after.tweaks]
         for index in range(max(len(old), len(new))):

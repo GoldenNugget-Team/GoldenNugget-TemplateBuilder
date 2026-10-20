@@ -47,6 +47,16 @@ class GoldenNugget(unittest.TestCase):
         self.assertEqual(known_keys_data.PATHS, current,
                          "GoldenNugget's tweaks changed: run python tools/make_known_keys.py $GOLDENNUGGET_DIR")
 
+    def test_wallpaper_options_load_in_goldennugget(self):
+        from tests.test_core import wallpaper
+        template = wallpaper()
+        self.assertEqual(rules.errors(rules.validate(template)), [])
+        loaded = self.TemplateFile(self.save(template))
+        self.assertEqual([type(option).__name__ for option in loaded.options],
+                         ["ReplaceOption", "SetOption", "RemoveOption", "PickerOption"])
+        self.assertEqual(loaded.domain, "AppDomain-com.apple.PosterBoard")
+        self.assertEqual(list(loaded.previews), ["preview.png"])
+
     def test_sample_loads_with_the_same_tweaks(self):
         template = sample()
         source = template.add_source("pref.plist", b"<plist/>")

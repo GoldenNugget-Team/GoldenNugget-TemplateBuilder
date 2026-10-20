@@ -36,6 +36,11 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
   from an existing `.plist` file.
 - **Controls**: a slider, text box or choice list whose value replaces every key
   of the type *Control value*.
+- **Wallpaper options** (format 2) for templates that restore files, such as
+  PosterBoard wallpapers: the domain, previews, banner and every option type
+  (replace files, set a value in a .caml, remove files, picker, app bundle id),
+  with the files picked from the template. **Add Folder…** brings in a
+  Container folder.
 - **Check**: every rule GoldenNugget applies when it loads a template, plus the
   risk notes its apply summary shows:
   - low for keys in Managed Preferences;

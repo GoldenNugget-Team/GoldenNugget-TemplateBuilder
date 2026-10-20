@@ -466,4 +466,124 @@ RU = {
     "That's it!": "Вот и всё!",
     "When the tour ends your own template comes back. Click End Tour now, or wait a moment.":
         "Когда тур закончится, ваш шаблон вернётся. Нажмите «Завершить тур» сейчас или подождите немного.",
+
+    # ----- wallpaper options -----
+    "Wallpaper Options": "Опции обоев",
+    "For templates that restore files, like PosterBoard wallpapers: where the files go, and the options people "
+    "change in GoldenNugget before applying. A template with only tweaks needs nothing here.":
+        "Для шаблонов, которые восстанавливают файлы, например обоев PosterBoard: куда идут файлы и какие опции "
+        "люди меняют в GoldenNugget перед применением. Шаблону только с твиками здесь ничего не нужно.",
+    "Restore": "Восстановление",
+    "Domain": "Домен",
+    "none: the template has only tweaks": "нет: в шаблоне только твики",
+    "AppDomain-<bundle id> restores the template's Container folder into that app (PosterBoard for wallpapers); "
+    "Sparserestore-<path> restores it under a path.":
+        "AppDomain-<bundle id> восстанавливает папку Container шаблона в это приложение (для обоев — PosterBoard); "
+        "Sparserestore-<путь> восстанавливает её по указанному пути.",
+    "Add Folder…": "Добавить папку…",
+    "Add a Folder to the Template": "Добавить папку в шаблон",
+    "{n} file in the template": ("{n} файл в шаблоне", "{n} файла в шаблоне", "{n} файлов в шаблоне"),
+    "No files yet: add the folder that holds the Container (or descriptors).":
+        "Файлов пока нет: добавьте папку, в которой лежит Container (или descriptors).",
+    "Previews": "Превью",
+    "Preview images": "Картинки превью",
+    "Resources": "Ресурсы",
+    "Layout": "Расположение",
+    "Side by side": "В ряд",
+    "Stacked": "Друг под другом",
+    "Banner text": "Текст баннера",
+    "Previews and the banner show above the options in GoldenNugget. Every preview must also match a resource "
+    "(comma-separated paths, * allowed).":
+        "Превью и баннер показываются над опциями в GoldenNugget. Каждое превью должно также подходить под ресурс "
+        "(пути через запятую, можно *).",
+    "Options": "Опции",
+    "No options yet. Add one to let people customize the wallpaper.":
+        "Опций пока нет. Добавьте опцию, чтобы люди могли настроить обои.",
+    "(broken option)": "(сломанная опция)",
+    "Unknown": "Неизвестно",
+    "(not set)": "(не задано)",
+    "Replace files": "Замена файлов",
+    "Set a value": "Значение",
+    "Remove files": "Удаление файлов",
+    "Picker": "Выбор варианта",
+    "App bundle id": "Bundle id приложения",
+    "People choose a file of their own; it replaces the files listed here.":
+        "Человек выбирает свой файл, и он заменяет перечисленные здесь файлы.",
+    "Changes a property in .caml files: the layer whose nuggetId (or id) is the identifier.":
+        "Меняет свойство в файлах .caml: у слоя, чей nuggetId (или id) совпадает с идентификатором.",
+    "A checkbox; while it is ticked the files listed here are removed (or the layer, with an identifier).":
+        "Флажок: пока он отмечен, перечисленные файлы удаляются (или слой, если указан идентификатор).",
+    "People pick one of several choices; the files of the other choices are removed.":
+        "Человек выбирает один из вариантов, а файлы остальных вариантов удаляются.",
+    "For AppDomain templates: people can type another app's bundle id to restore to.":
+        "Для шаблонов AppDomain: можно ввести bundle id другого приложения, куда восстановить файлы.",
+    "Preview image": "Картинка превью",
+    "descriptors/…/bg.ca/main.caml (one per line; * matches anything)":
+        "descriptors/…/bg.ca/main.caml (по одному на строку; * — что угодно)",
+    "Add from Template…": "Добавить из шаблона…",
+    "Files in the Template": "Файлы в шаблоне",
+    "Filter files": "Фильтр файлов",
+    "The template has no files yet. Add a folder on the Wallpaper Options page.":
+        "В шаблоне пока нет файлов. Добавьте папку на странице «Опции обоев».",
+    "Button label": "Текст кнопки",
+    "Choose Image": "Выбрать картинку",
+    "Allowed files": "Допустимые файлы",
+    "Required": "Обязательно",
+    "Identifier": "Идентификатор",
+    "the layer's nuggetId": "nuggetId слоя",
+    "Use the CoreAnimation id": "Использовать id CoreAnimation",
+    "Property": "Свойство",
+    "Default value": "Значение по умолчанию",
+    "Inverted": "Наоборот",
+    "Value when on": "Значение при включении",
+    "Value when off": "Значение при выключении",
+    "Includes opacity": "С прозрачностью",
+    "Ticked by default": "Отмечено по умолчанию",
+    "Inverted (remove while unticked)": "Наоборот (удалять, пока не отмечено)",
+    "optional: remove one layer": "необязательно: удалить один слой",
+    "Allow several choices": "Можно выбрать несколько",
+    "Rename the chosen files": "Переименовывать выбранные файлы",
+    "New names": "Новые имена",
+    "Default choice": "Вариант по умолчанию",
+    "Choices": "Варианты",
+    "No settings: the domain's bundle id is the default.": "Настроек нет: по умолчанию берётся bundle id из домена.",
+    "Add at least one tweak or wallpaper option.": "Добавьте хотя бы один твик или опцию обоев.",
+    "\"options\" must be a list.": "\"options\" должен быть списком.",
+    "A template with wallpaper options needs a domain, or its options are never applied.":
+        "Шаблону с опциями обоев нужен домен, иначе опции никогда не применятся.",
+    "Domains start with AppDomain- or Sparserestore-.": "Домен начинается с AppDomain- или Sparserestore-.",
+    "The preview {name} is not listed in resources, so GoldenNugget does not show it.":
+        "Превью {name} не указано в ресурсах, поэтому GoldenNugget его не покажет.",
+    "Unsafe resource path: {name}": "Небезопасный путь ресурса: {name}",
+    "The resource {name} matches no file in the template.": "Под ресурс {name} не подходит ни один файл шаблона.",
+    "The preview layout is horizontal or stacked.": "Расположение превью — horizontal или stacked.",
+    "\"files\" must be a list of paths inside the template.": "\"files\" должен быть списком путей внутри шаблона.",
+    "Unsafe path: {name}": "Небезопасный путь: {name}",
+    "{name} matches no file in the template.": "Под {name} не подходит ни один файл шаблона.",
+    "Option {n}": "Опция {n}",
+    "Every option is an object with a type and a label.": "Каждая опция — объект с типом и подписью.",
+    "Option types are replace, set, remove, picker or bundle_id.":
+        "Типы опций: replace, set, remove, picker или bundle_id.",
+    "Every option needs a label.": "Каждой опции нужна подпись.",
+    "A bundle id option only works with an AppDomain- domain.": "Опция bundle id работает только с доменом AppDomain-.",
+    "The associated preview {name} is not one of the template's previews.":
+        "Связанное превью {name} не входит в превью шаблона.",
+    "The option needs \"files\": the files it changes.": "Опции нужен \"files\": файлы, которые она меняет.",
+    "The option lists no files, so it changes nothing.": "В опции не указано файлов, поэтому она ничего не меняет.",
+    "A replace option needs allowed files, for example Images (*.png *.jpg).":
+        "Опции замены нужны допустимые файлы, например Images (*.png *.jpg).",
+    "A set option needs an identifier and a key.": "Опции значения нужны идентификатор и свойство (key).",
+    "The setter is textbox, slider, toggle or color_picker.":
+        "Элемент управления: textbox, slider, toggle или color_picker.",
+    "A slider needs a minimum and a maximum.": "Слайдеру нужны минимум и максимум.",
+    "The slider's minimum is not below its maximum.": "Минимум слайдера не меньше максимума.",
+    "The value type is integer, float or string.": "Тип значения: integer, float или string.",
+    "A picker needs at least one choice.": "Выбору варианта нужен хотя бы один вариант.",
+    "Choice {n} needs a label and files.": "Варианту {n} нужны подпись и файлы.",
+    "A renaming picker needs \"names\": safe paths inside the template.":
+        "Выбору с переименованием нужен \"names\": безопасные пути внутри шаблона.",
+    "A renaming picker needs a name for each file of a choice.":
+        "Выбору с переименованием нужно новое имя для каждого файла варианта.",
+    "The default choice is the number of a choice, counting from 0.":
+        "Вариант по умолчанию — номер варианта, считая с 0.",
 }

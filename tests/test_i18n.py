@@ -34,8 +34,9 @@ def interface_texts() -> set:
                     found.add(texts[0])
                 elif name in ("say", "show") and path.name == "tour.py" and len(texts) >= 2:
                     found.update(texts[:2])
-    from batter_builder.ui import tweak_editor, value_table
-    return found | set(value_table.TYPES) | set(tweak_editor.CHOICE_TYPES)
+    from batter_builder.ui import options_page, tweak_editor, value_table
+    return (found | set(value_table.TYPES) | set(tweak_editor.CHOICE_TYPES)
+            | set(options_page.TYPE_LABELS.values()) | set(options_page.TYPE_NOTES.values()))
 
 
 def fields(text: str) -> set:
@@ -46,6 +47,13 @@ class Translation(unittest.TestCase):
     def test_every_text_is_translated(self):
         missing = sorted(text for text in interface_texts() if text not in RU)
         self.assertEqual(missing, [])
+
+    def test_no_text_is_translated_twice(self):
+        import collections
+        source = (ROOT / "translations_ru.py").read_text(encoding="utf-8")
+        table = next(node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Dict))
+        keys = collections.Counter(ast.literal_eval(key) for key in table.keys)
+        self.assertEqual([key for key, count in keys.items() if count > 1], [])
 
     def test_placeholders_are_kept(self):
         for english, russian in RU.items():
