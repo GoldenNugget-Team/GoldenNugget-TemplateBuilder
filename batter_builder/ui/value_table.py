@@ -2,13 +2,14 @@
 import json
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QHBoxLayout,
+    QCheckBox, QComboBox, QCompleter, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QHBoxLayout,
     QHeaderView, QLabel, QLineEdit, QMessageBox, QSpinBox, QTableWidget, QTreeWidget,
-    QTreeWidgetItem, QVBoxLayout, QWidget,
+    QStyledItemDelegate, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
-from .. import plist_import
+from .. import known_keys, plist_import
 from ..i18n import _, n_
 from ..model import VALUE_TOKEN
 from .parts import button, muted
@@ -98,6 +99,29 @@ class ValueEditor(QWidget):
         return parsed
 
 
+class KeyDelegate(QStyledItemDelegate):
+    """Key cells complete the keys GoldenNugget writes in the write's file."""
+
+    def __init__(self, table):
+        super().__init__(table)
+        self.model = QStandardItemModel(self)
+
+    def set_keys(self, keys: dict):
+        self.model.clear()
+        for key, entry in keys.items():
+            item = QStandardItem(key)
+            item.setToolTip(known_keys.summary(key, entry))
+            self.model.appendRow(item)
+
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        completer = QCompleter(self.model, editor)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        editor.setCompleter(completer)
+        return editor
+
+
 class ValuesTable(QWidget):
     """Edits ``values`` (a dict) in place and emits ``changed``."""
     changed = Signal()
@@ -106,6 +130,7 @@ class ValuesTable(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.values = {}
+        self.known = {}
         self._loading = False
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -119,8 +144,14 @@ class ValuesTable(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setMinimumHeight(150)
         self.table.verticalHeader().setDefaultSectionSize(38)
-        self.table.itemChanged.connect(lambda _item: self._store())
+        self.keys = KeyDelegate(self.table)
+        self.table.setItemDelegateForColumn(self.KEY, self.keys)
+        self.table.itemChanged.connect(self._item_changed)
+        self.table.currentCellChanged.connect(lambda *_args: self._show_note())
         layout.addWidget(self.table)
+        self.note = muted("")
+        self.note.hide()
+        layout.addWidget(self.note)
         buttons = QHBoxLayout()
         add = button(_("Add Key"), self.add_row, "plus")
         remove = button(_("Remove Key"), self.remove_row, "trash")
@@ -130,6 +161,12 @@ class ValuesTable(QWidget):
         buttons.addWidget(button(_("Import from Plist…"), self.import_plist, "upload"))
         layout.addLayout(buttons)
 
+    def set_path(self, path: str):
+        """The write's file: its known keys are suggested."""
+        self.known = known_keys.for_path(path)
+        self.keys.set_keys(self.known)
+        self._show_note()
+
     def set_values(self, values: dict):
         self.values = values
         self._loading = True
@@ -137,6 +174,43 @@ class ValuesTable(QWidget):
         for key, value in values.items():
             self._append(key, type_of(value), value)
         self._loading = False
+        self._show_note()
+
+    def _item_changed(self, item):
+        if item.column() == self.KEY and not self._loading:
+            self._suggest(item)
+        self._store()
+
+    def _suggest(self, item):
+        """Typing a key GoldenNugget knows sets the type and value its tweak
+        uses, once: renaming the row to another known key sets them again."""
+        key = item.text().strip()
+        entry = self.known.get(key)
+        item.setToolTip(known_keys.summary(key, entry) if entry else "")
+        if entry is None or item.data(Qt.UserRole) == key:
+            self._show_note()
+            return
+        self.table.blockSignals(True)
+        item.setData(Qt.UserRole, key)
+        self.table.blockSignals(False)
+        row, kind = item.row(), entry["type"]
+        combo = self.table.cellWidget(row, self.TYPE)
+        if combo is not None and combo.currentData() != CONTROL:
+            combo.blockSignals(True)
+            combo.setCurrentIndex(max(0, combo.findData(kind)))
+            combo.blockSignals(False)
+            self._set_editor(row, kind, entry["value"])
+        self._show_note()
+
+    def _show_note(self):
+        row = self.table.currentRow()
+        entry = self.known.get(self._key(row)) if row >= 0 else None
+        if entry is not None:
+            self.note.setText(known_keys.summary(self._key(row), entry))
+        elif self.known:
+            self.note.setText(n_(len(self.known), "{n} key GoldenNugget writes in this file is suggested as you type a key.",
+                                 "{n} keys GoldenNugget writes in this file are suggested as you type a key."))
+        self.note.setVisible(entry is not None or bool(self.known))
 
     def errors(self) -> list:
         problems, seen = [], set()
@@ -157,7 +231,12 @@ class ValuesTable(QWidget):
         from PySide6.QtWidgets import QTableWidgetItem
         row = self.table.rowCount()
         self.table.insertRow(row)
-        self.table.setItem(row, self.KEY, QTableWidgetItem(key))
+        item = QTableWidgetItem(key)
+        item.setData(Qt.UserRole, key)     # its type and value are already chosen
+        entry = self.known.get(key)
+        if entry:
+            item.setToolTip(known_keys.summary(key, entry))
+        self.table.setItem(row, self.KEY, item)
         combo = QComboBox()
         for name in TYPES:
             combo.addItem(_(name), name)

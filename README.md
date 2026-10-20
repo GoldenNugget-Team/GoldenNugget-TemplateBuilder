@@ -30,8 +30,10 @@ GoldenNugget's built-in tweaks write to. No JSON by hand.
   - an empty file.
 
   The path box suggests the Managed Preferences files GoldenNugget itself uses
-  and says right away whether GoldenNugget can write there. **Import from
-  Plist…** takes the keys you tick from an existing `.plist` file.
+  and says right away whether GoldenNugget can write there. The key column
+  suggests the keys GoldenNugget's own tweaks write in that file, with their
+  type, value and description. **Import from Plist…** takes the keys you tick
+  from an existing `.plist` file.
 - **Controls**: a slider, text box or choice list whose value replaces every key
   of the type *Control value*.
 - **Check**: every rule GoldenNugget applies when it loads a template, plus the

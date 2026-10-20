@@ -337,6 +337,10 @@ RU = {
     "Select All": "Выбрать все",
     "Select None": "Снять все",
     "Left out ({n}), since config.json cannot hold them: ": "Пропущено ({n}), config.json не может их хранить: ",
+    "{n} key GoldenNugget writes in this file is suggested as you type a key.": (
+        "Подсказывается {n} ключ, который GoldenNugget пишет в этот файл: начните вводить имя ключа.",
+        "Подсказываются {n} ключа, которые GoldenNugget пишет в этот файл: начните вводить имя ключа.",
+        "Подсказываются {n} ключей, которые GoldenNugget пишет в этот файл: начните вводить имя ключа."),
     "Import {n} Key": ("Импортировать {n} ключ", "Импортировать {n} ключа", "Импортировать {n} ключей"),
     "Import": "Импортировать",
 

@@ -87,6 +87,7 @@ class WriteForm(QWidget):
         self.type.set_data(write.type)
         self.path.setEditText(write.path)
         self.owner.set_data(write.owner)
+        self.values.set_path(write.path)
         self.values.set_values(write.values)
         self._show_type()
         self._loading = False
@@ -119,6 +120,7 @@ class WriteForm(QWidget):
         if self.write is None or self._loading:
             return
         self.write.path = text.strip()
+        self.values.set_path(self.write.path)
         self._update_path_note()
         self._emit()
 

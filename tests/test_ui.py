@@ -464,6 +464,29 @@ class Window(unittest.TestCase):
             checker.handle(release("v0.1"), "")
         self.assertIn("latest version", information.call_args[0][2])
 
+    def test_known_keys_are_suggested(self):
+        from batter_builder import known_keys
+        values = self.window.editor.writes.form.values
+        springboard = known_keys.for_path(self.window.template.tweaks[0].writes[0].path)
+        self.assertIn("SBDisableParallax", springboard)
+        self.assertEqual(values.keys.model.rowCount(), len(springboard))
+        self.assertFalse(values.note.isHidden())
+
+        values.add_row()                                   # NewKey, Boolean true
+        values.table.item(0, 0).setText("SBDontDimOrLockOnAC")
+        entry = springboard["SBDontDimOrLockOnAC"]
+        self.assertEqual(values.table.cellWidget(0, 1).currentData(), entry["type"])
+        self.assertIn(entry["title"], values.table.item(0, 0).toolTip())
+        self.assertEqual(self.window.template.tweaks[0].writes[0].values, {"SBDontDimOrLockOnAC": entry["value"]})
+
+        values.table.cellWidget(0, 1).setCurrentText(value_table.CONTROL)   # a chosen type is kept
+        values.table.item(0, 0).setText("SBDisableParallax")
+        self.assertEqual(self.window.template.tweaks[0].writes[0].values, {"SBDisableParallax": "$value"})
+
+        self.window.editor.writes.form.path.setEditText("/var/mobile/Library/Preferences/com.example.plist")
+        self.assertEqual(values.keys.model.rowCount(), 0)
+        self.assertTrue(values.note.isHidden())
+
     def test_submit_refuses_errors(self):
         with patch("batter_builder.ui.main_window.QMessageBox.warning") as warning, \
                 patch("batter_builder.ui.main_window.QInputDialog.getText") as ask:

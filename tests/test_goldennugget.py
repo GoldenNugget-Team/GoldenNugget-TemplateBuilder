@@ -36,6 +36,17 @@ class GoldenNugget(unittest.TestCase):
         batter.save(template, path)
         return path
 
+    def test_known_keys_match_goldennuggets_registry(self):
+        import importlib.util
+        from batter_builder import known_keys_data
+        tool = Path(__file__).resolve().parents[1] / "tools" / "make_known_keys.py"
+        spec = importlib.util.spec_from_file_location("make_known_keys", tool)
+        maker = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(maker)
+        current = maker.build(Path(GOLDENNUGGET).resolve())["paths"]
+        self.assertEqual(known_keys_data.PATHS, current,
+                         "GoldenNugget's tweaks changed: run python tools/make_known_keys.py $GOLDENNUGGET_DIR")
+
     def test_sample_loads_with_the_same_tweaks(self):
         template = sample()
         source = template.add_source("pref.plist", b"<plist/>")
